@@ -17,6 +17,10 @@ int MFS_Lookup(int pinum, char *name){
  if(pinum < 0 || pinum >= MFS_BLOCK_SIZE){
         return -1;
     }
+// first use pinum to find parent directory
+// then loop through children and compare the names, searching for the name entered into the function
+// return -1 if found, otherwise throw error for name does not exist in pinum
+
 }
 /*returns some information about the file specified by inum. Upon success, return 0, otherwise -1. 
 The exact info returned is defined by MFS_Stat_t. 
@@ -25,6 +29,9 @@ int MFS_Stat(int inum, MFS_Stat_t *m){
      if(inum < 0 || inum >= MFS_BLOCK_SIZE){
         return -1;
     }
+// use inum to search for file
+// throw error if inum does not exist
+// once the file is located, use inode_t to change MFS_Stat_t to include the proper type/size
 return 0;
 }
 /*writes a buffer of size nbytes (max size: 4096 bytes) at the byte offset specified by offset. 
@@ -34,6 +41,10 @@ int MFS_Write(int inum, char *buffer, int offset, int nbytes){
      if(inum < 0 || inum >= MFS_BLOCK_SIZE || nbytes < 0|| nbytes >= MFS_BLOCK_SIZE){
         return -1;
     }
+
+// use inum to index inode bitmap and check if its allocated, if not throw error
+// then use inum to find inode in inode table
+// use offset to determine which inode pointer to use to access what block, then write buffer to that block
 return 0;
 }
 /*reads nbytes of data (max size 4096 bytes) specified by the byte offset offset into the buffer from file specified by inum. 
@@ -43,7 +54,10 @@ int MFS_Read(int inum, char *buffer, int offset, int nbytes){
      if(inum < 0 || inum >= MFS_BLOCK_SIZE || nbytes < 0|| nbytes > MFS_BLOCK_SIZE){
         return -1;
     }
-    
+   
+// use inum to index inode bitmap and check if its allocated, if not throw error
+// then use inum to find inode in inode table
+// use offset to determine which inode pointer to use to access what block, then set buffer to that data
 return 0;
 }
 //makes a file (type == MFS_REGULAR_FILE) or directory (type == MFS_DIRECTORY) in the parent directory specified by pinum of name name. 
@@ -59,18 +73,31 @@ int MFS_Creat(int pinum, int type, char *name){
     if(strlen(name) > 28){
         return -1;
     }
+// Use look up to check if the name already exists, throw error if it does
+// find open spot in inode table, allocate it
+// use that inum to create new inode in inode table
+// find open spot in data table, allocate it
+// use that to index data blocks, set name
 return 0;
 }
 /*removes the file or directory name from the directory specified by pinum. 
 0 on success, -1 on failure. Failure modes: pinum does not exist, directory is NOT empty. 
 Note that the name not existing is NOT a failure by our definition (think about why this might be).*/
 int MFS_Unlink(int pinum, char *name){
+
     if(pinum < 0 || pinum >= MFS_BLOCK_SIZE){
         return -1;
     }
     if(MFS_Lookup(pinum, *name)== -1){
         return -1;
     }
+
+
+// use pinum to find parent directory
+// loop through parent directory to find name
+// if name doesn't exist, throw an error
+// if name is a non-empty directory, throw an error
+// otherwise remove the directory/file and update data accordingly
 
 }
 //just tells the server to force all of its data structures to disk and shutdown by calling exit(0). 
