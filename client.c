@@ -7,7 +7,7 @@
 int main(int argc, char *argv[]) {
     struct sockaddr_in addrSnd, addrRcv;
 
-    int sd = MFS_Init(20000);
+    int sd = UDP_Open(20000);
     int rc = UDP_FillSockAddr(&addrSnd, "localhost", 10000);//not right
 
     char message[BUFFER_SIZE];
