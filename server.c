@@ -3,13 +3,19 @@
 #include "ufs.h"
 
 #define BUFFER_SIZE (1000)
+int sd;
+void intHandler(int dummy) {
+    UDP_Close(sd);
+    exit(130);
+}
 
 // server code
 int main(int argc, char *argv[])
 {
+    signal(SIGINT, intHandler);
     int port = argv[1];
     int f = open(argv[2]);
-    int sd = UDP_Open(port);
+    sd = UDP_Open(port);
     assert(f > -1);
     assert(sd > -1);
     while (1)
