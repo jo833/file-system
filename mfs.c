@@ -25,7 +25,6 @@ int MFS_Init(char *hostname, int port)
 // Failure modes: invalid pinum, name does not exist in pinum.
 int MFS_Lookup(int pinum, char *name)
 {
-
     char message[BUFFER_SIZE];
     char indentifier[2] = "0\0";
     char *binary;
@@ -52,12 +51,17 @@ int MFS_Lookup(int pinum, char *name)
             printf("client:: failed to send\n");
             exit(1);
         }
+
         // timer needed in order to send another write if reply is not recieved in time
         printf("client:: wait for reply...\n");
         rc = UDP_Read(fd, &addrRcv, message, BUFFER_SIZE);
         printf("client:: got reply [size:%d contents:(%s)\n", rc, message);
+
+        if (rc != -1) return 0;
+
+        wait(1000);
     }
-    return 0;
+    return -1;
 }
 /*returns some information about the file specified by inum. Upon success, return 0, otherwise -1.
 The exact info returned is defined by MFS_Stat_t.
@@ -94,7 +98,7 @@ int MFS_Stat(int inum, MFS_Stat_t *m)
         rc = UDP_Read(fd, &addrRcv, message, BUFFER_SIZE);
         printf("client:: got reply [size:%d contents:(%s)\n", rc, message);
     }
-    return 0;
+    return -1;
 }
 /*writes a buffer of size nbytes (max size: 4096 bytes) at the byte offset specified by offset.
 Returns 0 on success, -1 on failure.
