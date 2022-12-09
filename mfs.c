@@ -10,8 +10,7 @@ struct sockaddr_in addrSnd, addrRcv;
 // takes a host name and port number and uses those to find the server exporting the file system.
 int MFS_Init(char *hostname, int port)
 {
-//call open
-   int UDP_Open(port);
+
 }
 // takes the parent inode number (which should be the inode number of a directory) and looks up the entry name in it.
 // The inode number of name is returned.
@@ -61,9 +60,7 @@ The exact info returned is defined by MFS_Stat_t.
 Failure modes: inum does not exist. File and directory sizes are described below.*/
 int MFS_Stat(int inum, MFS_Stat_t *m)
 {
-     if(inum < 0 || inum >= MFS_BLOCK_SIZE){
-        return -1;
-    }
+     
     // use inum to search for file
     // throw error if inum does not exist
     // once the file is located, use inode_t to change MFS_Stat_t to include the proper type/size
@@ -74,9 +71,7 @@ Returns 0 on success, -1 on failure.
 Failure modes: invalid inum, invalid nbytes, invalid offset, not a regular file (because you can't write to directories).*/
 int MFS_Write(int inum, char *buffer, int offset, int nbytes)
 {
-      if(inum < 0 || inum >= MFS_BLOCK_SIZE || offset > DIRECT_PTR ||nbytes < 0|| nbytes >= MFS_BLOCK_SIZE){
-        return -1;
-    }
+     
     // use inum to index inode bitmap and check if its allocated, if not throw error
     // then use inum to find inode in inode table
     // use offset to determine which inode pointer to use to access what block, then write buffer to that block
@@ -86,9 +81,7 @@ int MFS_Write(int inum, char *buffer, int offset, int nbytes)
 The routine should work for either a file or directory; directories should return data in the format specified by MFS_DirEnt_t.
 Success: 0, failure: -1. Failure modes: invalid inum, invalid offset, invalid nbytes.*/
 int MFS_Read(int inum, char *buffer, int offset, int nbytes)
-{  if(inum < 0 || inum >= MFS_BLOCK_SIZE|| offset > DIRECT_PTR || nbytes < 0|| nbytes >= MFS_BLOCK_SIZE){
-        return -1;
-    }
+{  
     // use inum to index inode bitmap and check if its allocated, if not throw error
     // then use inum to find inode in inode table
     // use offset to determine which inode pointer to use to access what block, then set buffer to that data
@@ -99,15 +92,7 @@ int MFS_Read(int inum, char *buffer, int offset, int nbytes)
 // If name already exists, return success.
 int MFS_Creat(int pinum, int type, char *name)
 {
-    if(pinum < 0 || pinum >= MFS_BLOCK_SIZE){
-        return -1;
-    }
-     if(MFS_Lookup(pinum, *name)== -1){
-        return -1;
-    }
-    if(strlen(name) > 28){
-        return -1;
-    }
+  
     // Use look up to check if the name already exists, throw error if it does
     // find open spot in inode table, allocate it
     // use that inum to create new inode in inode table
@@ -120,12 +105,7 @@ int MFS_Creat(int pinum, int type, char *name)
 Note that the name not existing is NOT a failure by our definition (think about why this might be).*/
 int MFS_Unlink(int pinum, char *name)
 {
-    if(pinum < 0 || pinum >= MFS_BLOCK_SIZE){
-        return -1;
-    }
-    if(MFS_Lookup(pinum, *name)== -1){
-        return -1;
-    }
+   
     
     // use pinum to find parent directory
     // loop through parent directory to find name
