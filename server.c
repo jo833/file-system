@@ -19,6 +19,42 @@ int main(int argc, char *argv[])
         printf("server:: waiting...\n");
         int rc = UDP_Read(sd, &addr, message, BUFFER_SIZE);
         printf("server:: read message [size:%d contents:(%s)]\n", rc, message);
+        char identifier = message[0];
+        switch (identifier)
+        {
+        case '0':
+            char *pinum_string;
+            char *name;
+            int i = 0;
+            while (message[i] != '\0'){
+                i++;
+                strcat(pinum_string, message[i]);
+            }
+            int pinum = atoi(pinum_string);
+            while (message[i] != '\0'){
+                i++;
+                strcat(name, message[i]);
+            }
+            break;
+        case '1':
+
+            break;
+        case '2':
+
+            break;
+        case '3':
+
+            break;
+        case '4':
+
+            break;
+        case '5':
+
+            break;
+        default:
+            printf("invalid identifier"); 
+            break;
+        }
         if (rc > 0)
         {
             char reply[BUFFER_SIZE];

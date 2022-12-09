@@ -26,21 +26,12 @@ int MFS_Init(char *hostname, int port)
 int MFS_Lookup(int pinum, char *name)
 {
     char message[BUFFER_SIZE];
-    char indentifier[2] = "0\0";
-    char *binary;
-    itoa(pinum, binary, 2);
-    int num_zeros = 16 - strlen(binary);
-
-    char zeros[num_zeros + 1];
-    for (int i = 0; i < num_zeros; i++)
-    {
-        zeros[i] = '0';
-    }
-    zeros[num_zeros] = '\0';
+    char indentifier = '0';
+    char *pinum_string;
+    itoa(pinum, pinum_string, 10);
 
     strcat(message, indentifier);
-    strcat(message, zeros);
-    strcat(message, binary);
+    strcat(message, pinum_string);
     strcat(message, name);
 
     while (1)
@@ -69,20 +60,11 @@ Failure modes: inum does not exist. File and directory sizes are described below
 int MFS_Stat(int inum, MFS_Stat_t *m)
 {
     char message[BUFFER_SIZE];
-    char indentifier[2] = "1\0";
+    char indentifier = '1';
     char *binary;
     itoa(inum, binary, 2);
-    int num_zeros = 16 - strlen(binary);
-
-    char zeros[num_zeros + 1];
-    for (int i = 0; i < num_zeros; i++)
-    {
-        zeros[i] = '0';
-    }
-    zeros[num_zeros] = '\0';
 
     strcat(message, indentifier);
-    strcat(message, zeros);
     strcat(message, binary);
 
     while (1)
@@ -106,47 +88,20 @@ Failure modes: invalid inum, invalid nbytes, invalid offset, not a regular file 
 int MFS_Write(int inum, char *buffer, int offset, int nbytes)
 {
     char message[BUFFER_SIZE];
-    char indentifier[2] = "2\0";
+    char indentifier[2] = '2';
     char *binary1;
     itoa(inum, binary1, 2);
-    int num_zeros1 = 16 - strlen(binary1);
-
-    char zeros1[num_zeros1 + 1];
-    for (int i = 0; i < num_zeros1; i++)
-    {
-        zeros1[i] = '0';
-    }
-    zeros1[num_zeros1] = '\0';
 
     char *binary2;
     itoa(offset, binary2, 2);
-    int num_zeros2 = 16 - strlen(binary2);
-
-    char zeros2[num_zeros2 + 1];
-    for (int i = 0; i < num_zeros2; i++)
-    {
-        zeros2[i] = '0';
-    }
-    zeros2[num_zeros2] = '\0';
-
+    
     char *binary3;
     itoa(nbytes, binary3, 2);
-    int num_zeros3 = 16 - strlen(binary3);
-
-    char zeros3[num_zeros3 + 1];
-    for (int i = 0; i < num_zeros3; i++)
-    {
-        zeros3[i] = '0';
-    }
-    zeros3[num_zeros3] = '\0';
 
     strcat(message, indentifier);
-    strcat(message, zeros1);
     strcat(message, binary1);
     strcat(message, buffer);
-    strcat(message, zeros2);
     strcat(message, binary2);
-    strcat(message, zeros3);
     strcat(message, binary3);
 
     while (1)
@@ -170,46 +125,19 @@ Success: 0, failure: -1. Failure modes: invalid inum, invalid offset, invalid nb
 int MFS_Read(int inum, char *buffer, int offset, int nbytes)
 {
     char message[BUFFER_SIZE];
-    char indentifier[2] = "3\0";
+    char indentifier[2] = '3';
     char *binary1;
     itoa(inum, binary1, 2);
-    int num_zeros1 = 16 - strlen(binary1);
-
-    char zeros1[num_zeros1 + 1];
-    for (int i = 0; i < num_zeros1; i++)
-    {
-        zeros1[i] = '0';
-    }
-    zeros1[num_zeros1] = '\0';
 
     char *binary2;
     itoa(offset, binary2, 2);
-    int num_zeros2 = 16 - strlen(binary2);
-
-    char zeros2[num_zeros2 + 1];
-    for (int i = 0; i < num_zeros2; i++)
-    {
-        zeros2[i] = '0';
-    }
-    zeros2[num_zeros2] = '\0';
 
     char *binary3;
     itoa(nbytes, binary3, 2);
-    int num_zeros3 = 16 - strlen(binary3);
-
-    char zeros3[num_zeros3 + 1];
-    for (int i = 0; i < num_zeros3; i++)
-    {
-        zeros3[i] = '0';
-    }
-    zeros3[num_zeros3] = '\0';
 
     strcat(message, indentifier);
-    strcat(message, zeros1);
     strcat(message, binary1);
-    strcat(message, zeros2);
     strcat(message, binary2);
-    strcat(message, zeros3);
     strcat(message, binary3);
 
     while (1)
@@ -233,33 +161,15 @@ int MFS_Read(int inum, char *buffer, int offset, int nbytes)
 int MFS_Creat(int pinum, int type, char *name)
 {
     char message[BUFFER_SIZE];
-    char indentifier[2] = "4\0";
+    char indentifier[2] = '4';
     char *binary1;
     itoa(pinum, binary1, 2);
-    int num_zeros1 = 16 - strlen(binary1);
-
-    char zeros1[num_zeros1 + 1];
-    for (int i = 0; i < num_zeros1; i++)
-    {
-        zeros1[i] = '0';
-    }
-    zeros1[num_zeros1] = '\0';
 
     char *binary2;
     itoa(type, binary2, 2);
-    int num_zeros2 = 16 - strlen(binary2);
-
-    char zeros2[num_zeros2 + 1];
-    for (int i = 0; i < num_zeros2; i++)
-    {
-        zeros2[i] = '0';
-    }
-    zeros2[num_zeros2] = '\0';
 
     strcat(message, indentifier);
-    strcat(message, zeros1);
     strcat(message, binary1);
-    strcat(message, zeros2);
     strcat(message, binary2);
     strcat(message, name);
 
@@ -284,21 +194,12 @@ Note that the name not existing is NOT a failure by our definition (think about 
 int MFS_Unlink(int pinum, char *name)
 {
     char message[BUFFER_SIZE];
-    char indentifier[2] = "5\0";
-    char *binary1;
-    itoa(pinum, binary1, 2);
-    int num_zeros1 = 16 - strlen(binary1);
-
-    char zeros1[num_zeros1 + 1];
-    for (int i = 0; i < num_zeros1; i++)
-    {
-        zeros1[i] = '0';
-    }
-    zeros1[num_zeros1] = '\0';
+    char indentifier[2] = '5';
+    char *binary;
+    itoa(pinum, binary, 2);
 
     strcat(message, indentifier);
-    strcat(message, zeros1);
-    strcat(message, binary1);
+    strcat(message, binary);
     strcat(message, name);
 
     while (1)
