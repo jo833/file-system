@@ -43,7 +43,14 @@ int main(int argc, char *argv[])
             }
             break;
         case '1':
-
+            char *pinum_string;
+            char *name;
+            int i = 0;
+            while (message[i] != '\0'){
+                i++;
+                strcat(pinum_string, message[i]);
+            }
+            int pinum = atoi(pinum_string);
             break;
         case '2':
 
