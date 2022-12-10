@@ -8,6 +8,7 @@
 #include <sys/mman.h>
  #include <sys/types.h>
  #include <unistd.h>
+ #include "udp.h"
 
 
 #define BUFFER_SIZE (1000)
@@ -33,7 +34,7 @@ int main(int argc, char *argv[])
     }
     fseek(fd, 0L, SEEK_SET);
     pointer = mmap(NULL, filesize, PROT_WRITE, MAP_PRIVATE, fileno(fd), 0);
-    struct super_t super = (struct super_t*)pointer;
+    super_t* super = (super_t*)pointer;
     
     sd = UDP_Open(port);
     assert(sd > -1);
@@ -41,6 +42,7 @@ int main(int argc, char *argv[])
     {
         struct sockaddr_in addr;
         char message[BUFFER_SIZE];
+        char reply[BUFFER_SIZE];
         printf("server:: waiting...\n");
         int rc = UDP_Read(sd, &addr, message, BUFFER_SIZE);
         printf("server:: read message [size:%d contents:(%s)]\n", rc, message);
@@ -64,7 +66,31 @@ int main(int argc, char *argv[])
                 strcat(name, message[i]);
             }
 
-            struct inode_t pinode = (struct inode_t*)(pointer + (super.inode_region_addr * (UFS_BLOCK_SIZE)) + (pinum * (sizeof(inode_t))));
+            inode_t* pinode = (inode_t*)(pointer + (super->inode_region_addr * (UFS_BLOCK_SIZE)) + (pinum * (sizeof(inode_t))));
+
+            if (pinode->type != MFS_DIRECTORY){
+                exit(0);
+            }
+
+            for (i = 0; i < DIRECT_PTRS; i++){
+                MFS_DirEnt_t* dir_entry = (MFS_DirEnt_t*)pinode->direct[i];
+                if (strcmp(dir_entry->name, name) == 0){
+                    break;
+                }
+                if (i == DIRECT_PTRS - 1){
+                    i++;
+                }
+            }
+
+            if (i == DIRECT_PTRS){
+                char *pinum_string;
+                itoa(pinum, pinum_string, 10);
+
+                strcat(message, );
+                
+            } else {
+
+            }
             break;
         case '1':
             char *inum_string;
