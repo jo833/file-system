@@ -183,15 +183,15 @@ int MFS_Creat(int pinum, int type, char *name)
 
     char message[BUFFER_SIZE];
     char indentifier[2] = '4';
-    char *binary1;
-    itoa(pinum, binary1, 2);
+    char *pinum_string;
+    itoa(pinum, pinum_string, 10);
 
-    char *binary2;
-    itoa(type, binary2, 2);
+    char *type_string;
+    itoa(type, type_string, 10);
 
     strcat(message, indentifier);
-    strcat(message, binary1);
-    strcat(message, binary2);
+    strcat(message, pinum_string);
+    strcat(message, type_string);
     strcat(message, name);
 
     while (1)
@@ -224,11 +224,11 @@ int MFS_Unlink(int pinum, char *name)
 
     char message[BUFFER_SIZE];
     char indentifier[2] = '5';
-    char *binary;
-    itoa(pinum, binary, 2);
+    char *pinum_string;
+    itoa(pinum, pinum_string, 10);
 
     strcat(message, indentifier);
-    strcat(message, binary);
+    strcat(message, pinum_string);
     strcat(message, name);
 
     while (1)
