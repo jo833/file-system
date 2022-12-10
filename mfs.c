@@ -61,11 +61,11 @@ int MFS_Stat(int inum, MFS_Stat_t *m)
 {
     char message[BUFFER_SIZE];
     char indentifier = '1';
-    char *binary;
-    itoa(inum, binary, 2);
+    char *inum_string;
+    itoa(inum, inum_string, 10);
 
     strcat(message, indentifier);
-    strcat(message, binary);
+    strcat(message, inum_string);
 
     while (1)
     {
@@ -88,21 +88,21 @@ Failure modes: invalid inum, invalid nbytes, invalid offset, not a regular file 
 int MFS_Write(int inum, char *buffer, int offset, int nbytes)
 {
     char message[BUFFER_SIZE];
-    char indentifier[2] = '2';
-    char *binary1;
-    itoa(inum, binary1, 2);
+    char indentifier = '2';
+    char *inum_string;
+    itoa(inum, inum_string, 10);
 
-    char *binary2;
-    itoa(offset, binary2, 2);
+    char *offset_string;
+    itoa(offset, offset_string, 10);
     
-    char *binary3;
-    itoa(nbytes, binary3, 2);
+    char *nbytes_string;
+    itoa(nbytes, nbytes_string, 10);
 
     strcat(message, indentifier);
-    strcat(message, binary1);
+    strcat(message, inum_string);
     strcat(message, buffer);
-    strcat(message, binary2);
-    strcat(message, binary3);
+    strcat(message, offset_string);
+    strcat(message, nbytes_string);
 
     while (1)
     {
@@ -125,20 +125,20 @@ Success: 0, failure: -1. Failure modes: invalid inum, invalid offset, invalid nb
 int MFS_Read(int inum, char *buffer, int offset, int nbytes)
 {
     char message[BUFFER_SIZE];
-    char indentifier[2] = '3';
-    char *binary1;
-    itoa(inum, binary1, 2);
+    char indentifier = '3';
+    char *inum_string;
+    itoa(inum, inum_string, 10);
 
-    char *binary2;
-    itoa(offset, binary2, 2);
+    char *offset_string;
+    itoa(offset, offset_string, 10);
 
-    char *binary3;
-    itoa(nbytes, binary3, 2);
+    char *nbytes_string;
+    itoa(nbytes, nbytes_string, 10);
 
     strcat(message, indentifier);
-    strcat(message, binary1);
-    strcat(message, binary2);
-    strcat(message, binary3);
+    strcat(message, inum_string);
+    strcat(message, offset_string);
+    strcat(message, nbytes_string);
 
     while (1)
     {
