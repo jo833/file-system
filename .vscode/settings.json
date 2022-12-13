@@ -1,5 +1,11 @@
 {
     "files.associations": {
-        "algorithm": "c"
+        "algorithm": "c",
+        "array": "c",
+        "deque": "c",
+        "string": "c",
+        "vector": "c",
+        "iterator": "c",
+        "string_view": "c"
     }
 }
