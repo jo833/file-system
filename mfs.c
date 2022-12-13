@@ -7,6 +7,17 @@
 int fd;
 struct sockaddr_in addrSnd, addrRcv;
 
+int num_digits(int num)
+{
+    int count = 0;
+    while (num != 0)
+    {
+        num = num / 10;
+        count++;
+    }
+    return count;
+}
+
 // takes a host name and port number and uses those to find the server exporting the file system.
 int MFS_Init(char *hostname, int port)
 {
@@ -19,6 +30,7 @@ int MFS_Init(char *hostname, int port)
         printf("client:: failed to send\n");
         exit(1);
     }
+    return 0;
 }
 // takes the parent inode number (which should be the inode number of a directory) and looks up the entry name in it.
 // The inode number of name is returned.
@@ -28,11 +40,11 @@ int MFS_Lookup(int pinum, char *name)
 {
 
     char message[BUFFER_SIZE];
-    char indentifier = '0';
-    char *pinum_string;
-    itoa(pinum, pinum_string, 10);
+    char identifier = '0';
+    char pinum_string[num_digits(pinum) + 1];
+    sprintf(pinum_string, "%d", pinum);
 
-    strcat(message, indentifier);
+    strcat(message, &identifier);
     strcat(message, pinum_string);
     strcat(message, name);
 
@@ -49,9 +61,29 @@ int MFS_Lookup(int pinum, char *name)
         rc = UDP_Read(fd, &addrRcv, message, BUFFER_SIZE);
         printf("client:: got reply [size:%d contents:(%s)\n", rc, message);
 
-        if (rc != -1) return 0;
+        if (rc != -1)
+        {
+            if (message[0] == '1')
+            {
+                return -1;
+            }
+            int i = 1;
+            int count = 1;
+            while (message[count] != '\0')
+            {
+                count++;
+            }
+            char inum_string[count];
+            inum_string[count - 1] = '\0';
+            while (message[i] != '\0')
+            {
+                strcat(inum_string, &message[i]);
+                i++;
+            }
+            return atoi(inum_string);
+        }
 
-        wait(1000);
+        wait((int *)1000);
     }
     return -1;
 }
@@ -62,11 +94,11 @@ int MFS_Stat(int inum, MFS_Stat_t *m)
 {
 
     char message[BUFFER_SIZE];
-    char indentifier = '1';
-    char *inum_string;
-    itoa(inum, inum_string, 10);
+    char identifier = '1';
+    char inum_string[num_digits(inum) + 1];
+    sprintf(inum_string, "%d", inum);
 
-    strcat(message, indentifier);
+    strcat(message, &identifier);
     strcat(message, inum_string);
 
     while (1)
@@ -81,6 +113,47 @@ int MFS_Stat(int inum, MFS_Stat_t *m)
         printf("client:: wait for reply...\n");
         rc = UDP_Read(fd, &addrRcv, message, BUFFER_SIZE);
         printf("client:: got reply [size:%d contents:(%s)\n", rc, message);
+
+        if (rc != -1)
+        {
+            if (message[0] == '1')
+            {
+                return -1;
+            }
+            int count = 1;
+            while (message[count] != '\0')
+            {
+                count++;
+            }
+            char type_string[count];
+            type_string[count - 1] = '\0';
+            int i = count + 1;
+            count = 1;
+            while (message[i] != '\0')
+            {
+                count++;
+                i++;
+            }
+            char size_string[count];
+            size_string[count - 1] = '\0';
+            i = 1;
+            while (message[i] != '\0')
+            {
+                strcat(type_string, &message[i]);
+                i++;
+            }
+            i++;
+            while (message[i] != '\0')
+            {
+                strcat(size_string, &message[i]);
+                i++;
+            }
+
+            m->type = atoi(type_string);
+            m->size = atoi(size_string);
+
+            return 0;
+        }
     }
     return -1;
 
@@ -88,7 +161,6 @@ int MFS_Stat(int inum, MFS_Stat_t *m)
     // throw error if inum does not exist
     // once the file is located, use inode_t to change MFS_Stat_t to include the proper type/size
     return 0;
-
 }
 /*writes a buffer of size nbytes (max size: 4096 bytes) at the byte offset specified by offset.
 Returns 0 on success, -1 on failure.
@@ -97,17 +169,15 @@ int MFS_Write(int inum, char *buffer, int offset, int nbytes)
 {
 
     char message[BUFFER_SIZE];
-    char indentifier = '2';
-    char *inum_string;
-    itoa(inum, inum_string, 10);
+    char identifier = '2';
+    char inum_string[num_digits(inum) + 1];
+    sprintf(inum_string, "%d", inum);
+    char offset_string[num_digits(offset) + 1];
+    sprintf(offset_string, "%d", offset);
+    char nbytes_string[num_digits(nbytes) + 1];
+    sprintf(nbytes_string, "%d", nbytes);
 
-    char *offset_string;
-    itoa(offset, offset_string, 10);
-    
-    char *nbytes_string;
-    itoa(nbytes, nbytes_string, 10);
-
-    strcat(message, indentifier);
+    strcat(message, &identifier);
     strcat(message, inum_string);
     strcat(message, buffer);
     strcat(message, offset_string);
@@ -140,17 +210,15 @@ int MFS_Read(int inum, char *buffer, int offset, int nbytes)
 {
 
     char message[BUFFER_SIZE];
-    char indentifier = '3';
-    char *inum_string;
-    itoa(inum, inum_string, 10);
+    char identifier = '3';
+    char inum_string[num_digits(inum) + 1];
+    sprintf(inum_string, "%d", inum);
+    char offset_string[num_digits(offset) + 1];
+    sprintf(offset_string, "%d", offset);
+    char nbytes_string[num_digits(nbytes) + 1];
+    sprintf(nbytes_string, "%d", nbytes);
 
-    char *offset_string;
-    itoa(offset, offset_string, 10);
-
-    char *nbytes_string;
-    itoa(nbytes, nbytes_string, 10);
-
-    strcat(message, indentifier);
+    strcat(message, &identifier);
     strcat(message, inum_string);
     strcat(message, offset_string);
     strcat(message, nbytes_string);
@@ -182,14 +250,13 @@ int MFS_Creat(int pinum, int type, char *name)
 {
 
     char message[BUFFER_SIZE];
-    char indentifier[2] = '4';
-    char *pinum_string;
-    itoa(pinum, pinum_string, 10);
+    char identifier = '4';
+    char pinum_string[num_digits(pinum) + 1];
+    sprintf(pinum_string, "%d", pinum);
+    char type_string[num_digits(type) + 1];
+    sprintf(type_string, "%d", type);
 
-    char *type_string;
-    itoa(type, type_string, 10);
-
-    strcat(message, indentifier);
+    strcat(message, &identifier);
     strcat(message, pinum_string);
     strcat(message, type_string);
     strcat(message, name);
@@ -223,11 +290,11 @@ int MFS_Unlink(int pinum, char *name)
 {
 
     char message[BUFFER_SIZE];
-    char indentifier[2] = '5';
-    char *pinum_string;
-    itoa(pinum, pinum_string, 10);
+    char identifier = '5';
+    char pinum_string[num_digits(pinum) + 1];
+    sprintf(pinum_string, "%d", pinum);
 
-    strcat(message, indentifier);
+    strcat(message, &identifier);
     strcat(message, pinum_string);
     strcat(message, name);
 
@@ -251,7 +318,6 @@ int MFS_Unlink(int pinum, char *name)
     // if name doesn't exist, throw an error
     // if name is a non-empty directory, throw an error
     // otherwise remove the directory/file and update data accordingly
-
 }
 // just tells the server to force all of its data structures to disk and shutdown by calling exit(0).
 // This interface will mostly be used for testing purposes.

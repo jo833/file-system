@@ -6,213 +6,23 @@
 #include <string.h>
 #include <signal.h>
 #include <sys/mman.h>
- #include <sys/types.h>
- #include <unistd.h>
- #include "udp.h"
-
+#include <sys/types.h>
+#include <unistd.h>
+#include "udp.h"
 
 #define BUFFER_SIZE (1000)
 int sd;
 char *pointer;
-void intHandler(int dummy)
-{
-    UDP_Close(sd);
-    exit(130);
-}
 
-// server code
-int main(int argc, char *argv[])
+int num_digits(int num)
 {
-    
-    signal(SIGINT, intHandler);
-    int port = argv[1];
-    FILE *fd = open(argv[2], "r+");
-    fseek(fd, 0L, SEEK_END);
-    size_t filesize = ftell(fd);
-    if (filesize == 0) {
-        exit(0);
-    }
-    fseek(fd, 0L, SEEK_SET);
-    pointer = mmap(NULL, filesize, PROT_WRITE, MAP_PRIVATE, fileno(fd), 0);
-    super_t* super = (super_t*)pointer;
-    
-    sd = UDP_Open(port);
-    assert(sd > -1);
-    while (1)
+    int count = 0;
+    while (num != 0)
     {
-        struct sockaddr_in addr;
-        char message[BUFFER_SIZE];
-        char reply[BUFFER_SIZE];
-        printf("server:: waiting...\n");
-        int rc = UDP_Read(sd, &addr, message, BUFFER_SIZE);
-        printf("server:: read message [size:%d contents:(%s)]\n", rc, message);
-        char identifier = message[0];
-        switch (identifier)
-        {
-        case '0':
-            char *pinum_string;
-            char *name;
-            int i, pinum;
-            i = 0;
-            while (message[i] != '\0')
-            {
-                i++;
-                strcat(pinum_string, message[i]);
-            }
-            pinum = atoi(pinum_string);
-            while (message[i] != '\0')
-            {
-                i++;
-                strcat(name, message[i]);
-            }
-
-            inode_t* pinode = (inode_t*)(pointer + (super->inode_region_addr * (UFS_BLOCK_SIZE)) + (pinum * (sizeof(inode_t))));
-
-            if (pinode->type != MFS_DIRECTORY){
-                exit(0);
-            }
-
-            for (i = 0; i < DIRECT_PTRS; i++){
-                MFS_DirEnt_t* dir_entry = (MFS_DirEnt_t*)pinode->direct[i];
-                if (strcmp(dir_entry->name, name) == 0){
-                    break;
-                }
-                if (i == DIRECT_PTRS - 1){
-                    i++;
-                }
-            }
-
-            if (i == DIRECT_PTRS){
-                char *pinum_string;
-                itoa(pinum, pinum_string, 10);
-
-                strcat(message, );
-                
-            } else {
-
-            }
-            break;
-        case '1':
-            char *inum_string;
-            int i, inum;
-            i = 0;
-            while (message[i] != '\0')
-            {
-                i++;
-                strc(inum_string, message[i]);
-            }
-            inum = atoi(inum_string);
-            break;
-        case '2':
-            char *inum_string;
-            char *buffer;
-            char *offset_string;
-            char *nbytes_string;
-            int i, inum, offset, nbytes;
-            i = 0;
-            while (message[i] != '\0')
-            {
-                i++;
-                strcat(inum_string, message[i]);
-            }
-            inum = atoi(inum_string);
-            while (message[i] != '\0')
-            {
-                i++;
-                strcat(buffer, message[i]);
-            }
-            while (message[i] != '\0')
-            {
-                i++;
-                strcat(offset_string, message[i]);
-            }
-            offset = atoi(inum_string);
-            while (message[i] != '\0')
-            {
-                i++;
-                strcat(nbytes_string, message[i]);
-            }
-            nbytes = atoi(inum_string);
-            break;
-        case '3':
-            char *inum_string;
-            char *offset_string;
-            char *nbytes_string;
-            int i, inum, offset, nbytes;
-            i = 0;
-            while (message[i] != '\0')
-            {
-                i++;
-                strcat(inum_string, message[i]);
-            }
-            inum = atoi(inum_string);
-            while (message[i] != '\0')
-            {
-                i++;
-                strcat(offset_string, message[i]);
-            }
-            offset = atoi(inum_string);
-            while (message[i] != '\0')
-            {
-                i++;
-                strcat(nbytes_string, message[i]);
-            }
-            nbytes = atoi(inum_string);
-            break;
-        case '4':
-            char *pinum_string;
-            char *type_string;
-            char *name;
-            int i, pinum, type;
-            i = 0;
-            while (message[i] != '\0')
-            {
-                i++;
-                strcat(pinum_string, message[i]);
-            }
-            pinum = atoi(pinum_string);
-            while (message[i] != '\0')
-            {
-                i++;
-                strcat(type_string, message[i]);
-            }
-            type = atoi(type_string);
-            while (message[i] != '\0')
-            {
-                i++;
-                strcat(name, message[i]);
-            }
-            break;
-        case '5':
-            char *pinum_string;
-            char *name;
-            int i, pinum;
-            i = 0;
-            while (message[i] != '\0')
-            {
-                i++;
-                strcat(pinum_string, message[i]);
-            }
-            int pinum = atoi(pinum_string);
-            while (message[i] != '\0')
-            {
-                i++;
-                strcat(name, message[i]);
-            }
-            break;
-        default:
-            printf("invalid identifier");
-            break;
-        }
-        if (rc > 0)
-        {
-            char reply[BUFFER_SIZE];
-            sprintf(reply, "goodbye world");
-            rc = UDP_Write(sd, &addr, reply, BUFFER_SIZE);
-            printf("server:: reply\n");
-        }
+        num = num / 10;
+        count++;
     }
-    return 0;
+    return count;
 }
 
 unsigned int get_bit(unsigned int *bitmap, int position)
@@ -227,4 +37,343 @@ void set_bit(unsigned int *bitmap, int position)
     int index = position / 32;
     int offset = 31 - (position % 32);
     bitmap[index] |= 0x1 << offset;
+}
+
+void lookup(char *message, super_t *super, struct sockaddr_in addr)
+{
+    char reply[BUFFER_SIZE];
+    int i, pinum, inum, count;
+    char failure = '0';
+    count = 1;
+    while (message[count] != '\0')
+    {
+        count++;
+    }
+    char pinum_string[count];
+    pinum_string[count - 1] = '\0';
+    i = count + 1;
+    count = 1;
+    while (message[i] != '\0')
+    {
+        count++;
+        i++;
+    }
+    char name[count];
+    name[count - 1] = '\0';
+    i = 1;
+    while (message[i] != '\0')
+    {
+        strcat(pinum_string, &message[i]);
+        i++;
+    }
+    pinum = atoi(pinum_string);
+    i++;
+    while (message[i] != '\0')
+    {
+        strcat(name, &message[i]);
+        i++;
+    }
+
+    if (get_bit((unsigned int *)(pointer + super->inode_bitmap_addr * (UFS_BLOCK_SIZE)), pinum) != 1)
+    {
+        char failure = '1';
+
+        strcat(reply, &failure);
+        UDP_Write(sd, &addr, reply, BUFFER_SIZE);
+        printf("server:: reply\n");
+        return;
+    }
+
+    inode_t *pinode = (inode_t *)(pointer + (super->inode_region_addr * (UFS_BLOCK_SIZE)) + (pinum * (sizeof(inode_t))));
+
+    if (pinode->type != MFS_DIRECTORY)
+    {
+        char failure = '1';
+
+        strcat(reply, &failure);
+        UDP_Write(sd, &addr, reply, BUFFER_SIZE);
+        printf("server:: reply\n");
+        return;
+    }
+
+    for (i = 0; i < DIRECT_PTRS; i++)
+    {
+        for (int j = 0; j < UFS_BLOCK_SIZE / sizeof(dir_ent_t); j++)
+        {
+            MFS_DirEnt_t *dir_entry = (MFS_DirEnt_t *)((pinode->direct[i] * UFS_BLOCK_SIZE) + sizeof(dir_ent_t) * j);
+            if (strcmp(dir_entry->name, name) == 0)
+            {
+                inum = dir_entry->inum;
+            }
+        }
+        if (i == DIRECT_PTRS - 1)
+        {
+            char failure = '1';
+
+            strcat(reply, &failure);
+            UDP_Write(sd, &addr, reply, BUFFER_SIZE);
+            printf("server:: reply\n");
+            return;
+        }
+    }
+
+    if (failure == '0')
+    {
+        char inum_string[num_digits(inum) + 1];
+        sprintf(inum_string, "%d", inum);
+        strcat(reply, &failure);
+        strcat(reply, inum_string);
+        UDP_Write(sd, &addr, reply, BUFFER_SIZE);
+        printf("server:: reply\n");
+        return;
+    }
+}
+
+void stat(char *message, super_t *super, struct sockaddr_in addr)
+{
+    char reply[BUFFER_SIZE];
+    int i, inum, count;
+    char failure = '0';
+
+    count = 1;
+    while (message[count] != '\0')
+    {
+        count++;
+    }
+    char inum_string[count];
+    inum_string[count - 1] = '\0';
+
+    i = 1;
+    while (message[i] != '\0')
+    {
+        strcat(inum_string, &message[i]);
+        i++;
+    }
+    inum = atoi(inum_string);
+
+    if (get_bit((unsigned int *)(pointer + super->inode_bitmap_addr * (UFS_BLOCK_SIZE)), inum) != 1)
+    {
+        char failure = '1';
+
+        strcat(reply, &failure);
+        UDP_Write(sd, &addr, reply, BUFFER_SIZE);
+        printf("server:: reply\n");
+        return;
+    }
+
+    inode_t *inode = (inode_t *)(pointer + (super->inode_region_addr * (UFS_BLOCK_SIZE)) + (inum * (sizeof(inode_t))));
+
+    if (failure == '0')
+    {
+        char inode_type_string[num_digits(inode->type) + 1];
+        char inode_size_string[num_digits(inode->size) + 1];
+        sprintf(inode_type_string, "%d", inode->type);
+        sprintf(inode_size_string, "%d", inode->size);
+        strcat(reply, &failure);
+        strcat(reply, inode_type_string);
+        strcat(reply, inode_size_string);
+        UDP_Write(sd, &addr, reply, BUFFER_SIZE);
+        printf("server:: reply\n");
+    }
+}
+
+void intHandler(int dummy)
+{
+    UDP_Close(sd);
+    exit(130);
+}
+
+// server code
+int main(int argc, char *argv[])
+{
+
+    signal(SIGINT, intHandler);
+    int port;
+    port = strtol(argv[1], NULL, 10);
+    FILE *fd;
+    fd = fopen(argv[2], "r+");
+    fseek(fd, 0L, SEEK_END);
+    size_t filesize = ftell(fd);
+    if (filesize == 0)
+    {
+        exit(0);
+    }
+    fseek(fd, 0L, SEEK_SET);
+    pointer = mmap(NULL, filesize, PROT_WRITE, MAP_PRIVATE, fileno(fd), 0);
+    super_t *super = (super_t *)pointer;
+
+    sd = UDP_Open(port);
+    assert(sd > -1);
+    while (1)
+    {
+        struct sockaddr_in addr;
+        char message[BUFFER_SIZE];
+       
+        printf("server:: waiting...\n");
+        int rc = UDP_Read(sd, &addr, message, BUFFER_SIZE);
+        printf("server:: read message [size:%d contents:(%s)]\n", rc, message);
+        char identifier = message[0];
+        switch (identifier)
+        {
+        case '0':
+            lookup(message, super, addr);
+            break;
+        case '1':
+            stat(message, super, addr);
+            break;
+        // case '2':
+        //     i = 0;
+        //     while (message[i] != '\0')
+        //     {
+        //         i++;
+        //         strcat(inum_string, &message[i]);
+        //     }
+        //     inum = atoi(inum_string);
+
+        //     inode = (inode_t *)(pointer + (super->inode_region_addr * (UFS_BLOCK_SIZE)) + (inum * (sizeof(inode_t))));
+
+        //     if (inode->type == MFS_DIRECTORY)
+        //     {
+        //         char failure = '1';
+
+        //         strcat(reply, &failure);
+        //         rc = UDP_Write(sd, &addr, reply, BUFFER_SIZE);
+        //         printf("server:: reply\n");
+        //         break;
+        //     }
+
+        //     while (message[i] != '\0')
+        //     {
+        //         i++;
+        //         strcat(buffer, &message[i]);
+        //     }
+        //     while (message[i] != '\0')
+        //     {
+        //         i++;
+        //         strcat(offset_string, &message[i]);
+        //     }
+        //     offset = atoi(inum_string);
+        //     while (message[i] != '\0')
+        //     {
+        //         i++;
+        //         strcat(nbytes_string, &message[i]);
+        //     }
+        //     nbytes = atoi(inum_string);
+        //     offset = nbytes;
+        //     nbytes = offset;
+        //     break;
+        // case '3':
+        //     i = 0;
+        //     while (message[i] != '\0')
+        //     {
+        //         i++;
+        //         strcat(inum_string, &message[i]);
+        //     }
+        //     inum = atoi(inum_string);
+        //     while (message[i] != '\0')
+        //     {
+        //         i++;
+        //         strcat(offset_string, &message[i]);
+        //     }
+        //     offset = atoi(inum_string);
+        //     while (message[i] != '\0')
+        //     {
+        //         i++;
+        //         strcat(nbytes_string, &message[i]);
+        //     }
+        //     nbytes = atoi(inum_string);
+        //     offset = nbytes;
+        //     nbytes = offset;
+        //     break;
+        // case '4':
+        //     i = 0;
+        //     while (message[i] != '\0')
+        //     {
+        //         i++;
+        //         strcat(pinum_string, &message[i]);
+        //     }
+        //     pinum = atoi(pinum_string);
+
+        //     if (get_bit((pointer + super->inode_bitmap_addr * (UFS_BLOCK_SIZE)), pinum) != 1)
+        //     {
+        //         char failure = '1';
+
+        //         strcat(reply, failure);
+        //         rc = UDP_Write(sd, &addr, reply, BUFFER_SIZE);
+        //         printf("server:: reply\n");
+        //         break;
+        //     }
+        //     while (message[i] != '\0')
+        //     {
+        //         i++;
+        //         strcat(type_string, &message[i]);
+        //     }
+        //     type = atoi(type_string);
+        //     while (message[i] != '\0')
+        //     {
+        //         i++;
+        //         strcat(name, &message[i]);
+        //     }
+
+        //     inode_t *pinode = (inode_t *)(pointer + (super->inode_region_addr * (UFS_BLOCK_SIZE)) + (pinum * (sizeof(inode_t))));
+
+        //     if (pinode->type != MFS_DIRECTORY)
+        //     {
+        //         char failure = '1';
+
+        //         strcat(reply, &failure);
+        //         rc = UDP_Write(sd, &addr, reply, BUFFER_SIZE);
+        //         printf("server:: reply\n");
+        //         break;
+        //     }
+
+        //     for (i = 0; i < DIRECT_PTRS; i++)
+        //     {
+        //         for (int j = 0; j < UFS_BLOCK_SIZE / sizeof(dir_ent_t); j++)
+        //         {
+        //             MFS_DirEnt_t *dir_entry = (MFS_DirEnt_t *)(pinode->direct[i] * UFS_BLOCK_SIZE) + sizeof(dir_ent_t) * j;
+        //             if (get_bit((pointer + super->data_bitmap_addr * (UFS_BLOCK_SIZE)), '?') != 1)
+        //             {
+        //                 set_bit((pointer + super->data_bitmap_addr * (UFS_BLOCK_SIZE)), '?');
+        //                 dir_entry->name = buffer;
+        //                 dir_entry->inum = '?';
+        //             }
+        //         }
+        //         if (i == DIRECT_PTRS - 1)
+        //         {
+        //             char failure = '1';
+
+        //             strcat(reply, &failure);
+        //             rc = UDP_Write(sd, &addr, reply, BUFFER_SIZE);
+        //             printf("server:: reply\n");
+        //         }
+        //     }
+        //     break;
+        // case '5':
+        //     i = 0;
+        //     while (message[i] != '\0')
+        //     {
+        //         i++;
+        //         strcat(pinum_string, &message[i]);
+        //     }
+        //     pinum = atoi(pinum_string);
+        //     while (message[i] != '\0')
+        //     {
+        //         i++;
+        //         strcat(name, &message[i]);
+        //     }
+        //     break;
+        default:
+            printf("invalid identifier");
+            break;
+        }
+        if (rc > 0)
+        {
+            char reply[BUFFER_SIZE];
+            sprintf(reply, "goodbye world");
+            rc = UDP_Write(sd, &addr, reply, BUFFER_SIZE);
+            printf("server:: reply\n");
+        }
+    }
+    return 0;
 }
