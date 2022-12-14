@@ -177,6 +177,171 @@ void stat(char *message, super_t *super, struct sockaddr_in addr)
     }
 }
 
+void write(char *message, super_t *super, struct sockaddr_in addr)
+{
+    char reply[BUFFER_SIZE];
+    int i, inum, offset, nbytes, count;
+    char failure = '0';
+    count = 1;
+    while (message[count] != '\0')
+    {
+        count++;
+    }
+    char inum_string[count];
+    inum_string[count - 1] = '\0';
+    i = count + 1;
+    count = 1;
+    while (message[i] != '\0')
+    {
+        count++;
+        i++;
+    }
+    char buffer[count];
+    buffer[count - 1] = '\0';
+    i++;
+    count = 1;
+    while (message[i] != '\0')
+    {
+        count++;
+        i++;
+    }
+    char offset_string[count];
+    offset_string[count - 1] = '\0';
+    i++;
+    count = 1;
+    while (message[i] != '\0')
+    {
+        count++;
+        i++;
+    }
+    char nbytes_string[count];
+    nbytes_string[count - 1] = '\0';
+    i = 1;
+    while (message[i] != '\0')
+    {
+        strcat(inum_string, &message[i]);
+        i++;
+    }
+    inum = atoi(inum_string);
+    i++;
+    while (message[i] != '\0')
+    {
+        strcat(buffer, &message[i]);
+        i++;
+    }
+    i++;
+    while (message[i] != '\0')
+    {
+        strcat(offset_string, &message[i]);
+        i++;
+    }
+    offset = atoi(offset_string);
+    i++;
+    while (message[i] != '\0')
+    {
+        strcat(nbytes_string, &message[i]);
+        i++;
+    }
+    nbytes = atoi(nbytes_string);
+
+    if (get_bit((unsigned int *)(pointer + super->inode_bitmap_addr * (UFS_BLOCK_SIZE)), inum) != 1)
+    {
+        char failure = '1';
+
+        strcat(reply, &failure);
+        UDP_Write(sd, &addr, reply, BUFFER_SIZE);
+        printf("server:: reply\n");
+        return;
+    }
+
+    inode_t *inode = (inode_t *)(pointer + (super->inode_region_addr * (UFS_BLOCK_SIZE)) + (inum * (sizeof(inode_t))));
+
+    if (inode->type == MFS_DIRECTORY)
+    {
+        char failure = '1';
+
+        strcat(reply, &failure);
+        UDP_Write(sd, &addr, reply, BUFFER_SIZE);
+        printf("server:: reply\n");
+        return;
+    }
+
+    if (inode->size != 0)
+    {
+        int direct_pointer_index = offset / UFS_BLOCK_SIZE;
+        int block_pointer_offset = offset % UFS_BLOCK_SIZE;
+        char *file_pointer = (pointer + (super->data_region_addr * (UFS_BLOCK_SIZE))) + (inode->direct[direct_pointer_index] * (UFS_BLOCK_SIZE)) + block_pointer_offset;
+        i = 0;
+        while (i < nbytes)
+        {
+            file_pointer = buffer[i];
+            i++;
+            if (block_pointer_offset + i == UFS_BLOCK_SIZE)
+            {
+                if (inode->size > direct_pointer_index * UFS_BLOCK_SIZE)
+                {
+                    file_pointer = (pointer + (super->data_region_addr * (UFS_BLOCK_SIZE))) + (inode->direct[direct_pointer_index + 1] * (UFS_BLOCK_SIZE));
+                }
+                else
+                {
+                    if (direct_pointer_index == DIRECT_PTRS)
+                    {
+                        char failure = '1';
+
+                        strcat(reply, &failure);
+                        UDP_Write(sd, &addr, reply, BUFFER_SIZE);
+                        printf("server:: reply\n");
+                        return;
+                    }
+                    char *data_bitmap_pointer = (pointer + (super->data_bitmap_addr * (UFS_BLOCK_SIZE)));
+                    i = 0;
+                    while (data_bitmap_pointer == '1')
+                    {
+                        i++;
+                        data_bitmap_pointer++;
+                    }
+                    data_bitmap_pointer = '1';
+                    file_pointer = (pointer + (super->data_region_addr * (UFS_BLOCK_SIZE))) + (i * (UFS_BLOCK_SIZE));
+                    inode->direct[direct_pointer_index + 1] = i;
+                }
+            }
+            else
+            {
+                file_pointer++;
+            }
+        }
+    }
+    else
+    {
+        char *data_bitmap_pointer = (pointer + (super->data_bitmap_addr * (UFS_BLOCK_SIZE)));
+        i = 0;
+        while (data_bitmap_pointer == '1')
+        {
+            i++;
+            data_bitmap_pointer++;
+        }
+        data_bitmap_pointer = '1';
+        char *file_pointer = (pointer + (super->data_region_addr * (UFS_BLOCK_SIZE))) + (i * (UFS_BLOCK_SIZE));
+        inode->direct[0] = i;
+        i = 0;
+        while (i < nbytes)
+        {
+            file_pointer = buffer[i];
+            i++;
+            file_pointer++;
+        }
+    }
+
+    if (failure == '0')
+    {
+        strcat(reply, &failure);
+        UDP_Write(sd, &addr, reply, BUFFER_SIZE);
+        printf("server:: reply\n");
+        return;
+    }
+    return -1;
+}
+
 void intHandler(int dummy)
 {
     UDP_Close(sd);
@@ -208,7 +373,7 @@ int main(int argc, char *argv[])
     {
         struct sockaddr_in addr;
         char message[BUFFER_SIZE];
-       
+
         printf("server:: waiting...\n");
         int rc = UDP_Read(sd, &addr, message, BUFFER_SIZE);
         printf("server:: read message [size:%d contents:(%s)]\n", rc, message);
