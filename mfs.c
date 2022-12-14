@@ -1,9 +1,14 @@
 #include "mfs.h"
 #include "udp.h"
 #include <stdlib.h>
+#include <time.h>
+
+
 
 #define BUFFER_SIZE (1000)
 
+int MIN_PORT = 20000;
+int MAX_PORT = 40000;
 int fd;
 struct sockaddr_in addrSnd, addrRcv;
 
@@ -22,7 +27,10 @@ int num_digits(int num)
 int MFS_Init(char *hostname, int port)
 {
 
-    fd = UDP_Open(port);
+srand(time(0));
+int port_num = (rand() % (MAX_PORT - MIN_PORT) + MIN_PORT);
+
+    fd = UDP_Open(port_num);
     int rc = UDP_FillSockAddr(&addrSnd, hostname, 10000);
 
     if (rc < 0)
