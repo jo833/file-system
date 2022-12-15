@@ -3,8 +3,6 @@
 #include <stdlib.h>
 #include <time.h>
 
-
-
 #define BUFFER_SIZE (1000)
 
 int MIN_PORT = 20000;
@@ -26,11 +24,7 @@ int num_digits(int num)
 // takes a host name and port number and uses those to find the server exporting the file system.
 int MFS_Init(char *hostname, int port)
 {
-
-srand(time(0));
-int port_num = (rand() % (MAX_PORT - MIN_PORT) + MIN_PORT);
-
-    fd = UDP_Open(port_num);
+    fd = UDP_Open(port);
     int rc = UDP_FillSockAddr(&addrSnd, hostname, 10000);
 
     if (rc < 0)
@@ -47,6 +41,10 @@ int port_num = (rand() % (MAX_PORT - MIN_PORT) + MIN_PORT);
 int MFS_Lookup(int pinum, char *name)
 {
 
+    if (pinum < 0 || pinum >= MFS_BLOCK_SIZE)
+    {
+        return -1;
+    }
     char message[BUFFER_SIZE];
     char identifier = '0';
     char pinum_string[num_digits(pinum) + 1];
@@ -102,7 +100,10 @@ The exact info returned is defined by MFS_Stat_t.
 Failure modes: inum does not exist. File and directory sizes are described below.*/
 int MFS_Stat(int inum, MFS_Stat_t *m)
 {
-
+    if (inum < 0 || inum >= MFS_BLOCK_SIZE)
+    {
+        return -1;
+    }
     char message[BUFFER_SIZE];
     char identifier = '1';
     char inum_string[num_digits(inum) + 1];
@@ -179,6 +180,10 @@ Failure modes: invalid inum, invalid nbytes, invalid offset, not a regular file 
 int MFS_Write(int inum, char *buffer, int offset, int nbytes)
 {
 
+    if (inum < 0 || inum >= MFS_BLOCK_SIZE || nbytes < 0 || nbytes >= MFS_BLOCK_SIZE)
+    {
+        return -1;
+    }
     char message[BUFFER_SIZE];
     char identifier = '2';
     char inum_string[num_digits(inum) + 1];
@@ -227,6 +232,10 @@ Success: 0, failure: -1. Failure modes: invalid inum, invalid offset, invalid nb
 int MFS_Read(int inum, char *buffer, int offset, int nbytes)
 {
 
+    if (inum < 0 || inum >= MFS_BLOCK_SIZE || nbytes < 0 || nbytes > MFS_BLOCK_SIZE)
+    {
+        return -1;
+    }
     char message[BUFFER_SIZE];
     char identifier = '3';
     char inum_string[num_digits(inum) + 1];
@@ -266,7 +275,7 @@ int MFS_Read(int inum, char *buffer, int offset, int nbytes)
                 buffer[i - 1] = message[i];
                 i++;
             }
-            return buffer;
+            return 0;
         }
 
         wait((int *)1000);
@@ -279,6 +288,13 @@ int MFS_Read(int inum, char *buffer, int offset, int nbytes)
 // If name already exists, return success.
 int MFS_Creat(int pinum, int type, char *name)
 {
+    printf("client:: starting MFS_Creat\n");
+    if (strlen(name) > 28)
+    {
+        printf("client:: MFS_Creat failed, name %s not too long\n", name);
+        return -1;
+    }
+    printf("client:: name %s not too long\n", name);
 
     char message[BUFFER_SIZE];
     char identifier = '4';
@@ -325,6 +341,10 @@ Note that the name not existing is NOT a failure by our definition (think about 
 int MFS_Unlink(int pinum, char *name)
 {
 
+    if (pinum < 0 || pinum >= MFS_BLOCK_SIZE)
+    {
+        return -1;
+    }
     char message[BUFFER_SIZE];
     char identifier = '5';
     char pinum_string[num_digits(pinum) + 1];

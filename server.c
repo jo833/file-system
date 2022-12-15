@@ -105,7 +105,7 @@ void mfs_lookup(char *message, super_t *super, struct sockaddr_in addr)
         for (int j = 0; j < UFS_BLOCK_SIZE / sizeof(dir_ent_t); j++)
         {
             MFS_DirEnt_t *dir_entry = (MFS_DirEnt_t *)((pointer + (super->data_region_addr * (UFS_BLOCK_SIZE)) + pinode->direct[i] * UFS_BLOCK_SIZE) + sizeof(dir_ent_t) * j);
-            if (strcmp(dir_entry->name, name) == 0)
+            if (dir_entry->inum != -1 && strcmp(dir_entry->name, name) == 0)
             {
                 inum = dir_entry->inum;
             }
@@ -581,7 +581,7 @@ void mfs_create(char *message, super_t *super, struct sockaddr_in addr)
         for (int j = 0; j < UFS_BLOCK_SIZE / sizeof(dir_ent_t); j++)
         {
             MFS_DirEnt_t *dir_entry = (MFS_DirEnt_t *)((pointer + (super->data_region_addr * (UFS_BLOCK_SIZE)) + pinode->direct[i] * UFS_BLOCK_SIZE) + sizeof(dir_ent_t) * j);
-            if (strcmp(dir_entry->name, name) == 0)
+            if (dir_entry->inum != -1 && strcmp(dir_entry->name, name) == 0)
             {
                 reply[0] = failure;
                 UDP_Write(sd, &addr, reply, BUFFER_SIZE);
@@ -713,10 +713,20 @@ void mfs_unlink(char *message, super_t *super, struct sockaddr_in addr)
         for (int j = 0; j < UFS_BLOCK_SIZE / sizeof(dir_ent_t); j++)
         {
             MFS_DirEnt_t *dir_entry = (MFS_DirEnt_t *)((pointer + (super->data_region_addr * (UFS_BLOCK_SIZE)) + pinode->direct[i] * UFS_BLOCK_SIZE) + sizeof(dir_ent_t) * j);
-            if (strcmp(dir_entry->name, name) == 0)
+            if (dir_entry->inum != -1 && strcmp(dir_entry->name, name) == 0)
             {
-                char *data_bitmap_pointer = (pointer + (super->data_bitmap_addr * (UFS_BLOCK_SIZE)));
-                set_bit((unsigned int *)data_bitmap_pointer, dir_entry->inum);
+                inode_t *inode = (inode_t *)(pointer + (super->inode_region_addr * (UFS_BLOCK_SIZE)) + (dir_entry->inum * (sizeof(inode_t))));
+                if (inode->type == MFS_DIRECTORY && inode->size != 2)
+                {
+                    char failure = '1';
+
+                    reply[0] = failure;
+                    UDP_Write(sd, &addr, reply, BUFFER_SIZE);
+                    printf("server:: reply\n");
+                    return;
+                }
+                char *inode_bitmap_pointer = (pointer + (super->inode_bitmap_addr * (UFS_BLOCK_SIZE)));
+                set_bit((unsigned int *)inode_bitmap_pointer, dir_entry->inum);
                 dir_entry->inum = -1;
             }
             if (i == DIRECT_PTRS - 1)
@@ -792,107 +802,10 @@ int main(int argc, char *argv[])
         case '3':
             mfs_read(message, super, addr);
             break;
-            // case '3':
-            //     i = 0;
-            //     while (message[i] != '\0')
-            //     {
-            //         i++;
-            //         strcat(inum_string, &message[i]);
-            //     }
-            //     inum = atoi(inum_string);
-            //     while (message[i] != '\0')
-            //     {
-            //         i++;
-            //         strcat(offset_string, &message[i]);
-            //     }
-            //     offset = atoi(inum_string);
-            //     while (message[i] != '\0')
-            //     {
-            //         i++;
-            //         strcat(nbytes_string, &message[i]);
-            //     }
-            //     nbytes = atoi(inum_string);
-            //     offset = nbytes;
-            //     nbytes = offset;
-            //     break;
-            // case '4':
-            //     i = 0;
-            //     while (message[i] != '\0')
-            //     {
-            //         i++;
-            //         strcat(pinum_string, &message[i]);
-            //     }
-            //     pinum = atoi(pinum_string);
-
-            //     if (get_bit((pointer + super->inode_bitmap_addr * (UFS_BLOCK_SIZE)), pinum) != 1)
-            //     {
-            //         char failure = '1';
-
-            //         strcat(reply, failure);
-            //         rc = UDP_Write(sd, &addr, reply, BUFFER_SIZE);
-            //         printf("server:: reply\n");
-            //         break;
-            //     }
-            //     while (message[i] != '\0')
-            //     {
-            //         i++;
-            //         strcat(type_string, &message[i]);
-            //     }
-            //     type = atoi(type_string);
-            //     while (message[i] != '\0')
-            //     {
-            //         i++;
-            //         strcat(name, &message[i]);
-            //     }
-
-            //     inode_t *pinode = (inode_t *)(pointer + (super->inode_region_addr * (UFS_BLOCK_SIZE)) + (pinum * (sizeof(inode_t))));
-
-            //     if (pinode->type != MFS_DIRECTORY)
-            //     {
-            //         char failure = '1';
-
-            //         reply[0] = failure;
-            //         rc = UDP_Write(sd, &addr, reply, BUFFER_SIZE);
-            //         printf("server:: reply\n");
-            //         break;
-            //     }
-
-            //     for (i = 0; i < DIRECT_PTRS; i++)
-            //     {
-            //         for (int j = 0; j < UFS_BLOCK_SIZE / sizeof(dir_ent_t); j++)
-            //         {
-            //             MFS_DirEnt_t *dir_entry = (MFS_DirEnt_t *)(pinode->direct[i] * UFS_BLOCK_SIZE) + sizeof(dir_ent_t) * j;
-            //             if (get_bit((pointer + super->data_bitmap_addr * (UFS_BLOCK_SIZE)), '?') != 1)
-            //             {
-            //                 set_bit((pointer + super->data_bitmap_addr * (UFS_BLOCK_SIZE)), '?');
-            //                 dir_entry->name = buffer;
-            //                 dir_entry->inum = '?';
-            //             }
-            //         }
-            //         if (i == DIRECT_PTRS - 1)
-            //         {
-            //             char failure = '1';
-
-            //             reply[0] = failure;
-            //             rc = UDP_Write(sd, &addr, reply, BUFFER_SIZE);
-            //             printf("server:: reply\n");
-            //         }
-            //     }
-            //     break;
-            // case '5':
-            //     i = 0;
-            //     while (message[i] != '\0')
-            //     {
-            //         i++;
-            //         strcat(pinum_string, &message[i]);
-            //     }
-            //     pinum = atoi(pinum_string);
-            //     while (message[i] != '\0')
-            //     {
-            //         i++;
-            //         strcat(name, &message[i]);
-            //     }
-            break;
+        case '4':
+            mfs_create(message, super, addr);
+        case '5':
+            mfs_unlink(message, super, addr);
         default:
             printf("invalid identifier");
             break;

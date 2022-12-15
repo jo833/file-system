@@ -20,6 +20,7 @@ ${PROGS} : % : %.o Makefile
 
 clean:
 	rm -f ${PROGS} ${OBJS}
-
+	rm -f mfs.o
+	
 %.o: %.c Makefile
 	${CC} ${CFLAGS} -c $<
