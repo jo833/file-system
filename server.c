@@ -39,7 +39,7 @@ void set_bit(unsigned int *bitmap, int position)
     bitmap[index] |= 0x1 << offset;
 }
 
-void lookup(char *message, super_t *super, struct sockaddr_in addr)
+void mfs_lookup(char *message, super_t *super, struct sockaddr_in addr)
 {
     char reply[BUFFER_SIZE];
     int i, pinum, inum, count;
@@ -61,24 +61,28 @@ void lookup(char *message, super_t *super, struct sockaddr_in addr)
     char name[count];
     name[count - 1] = '\0';
     i = 1;
+    count = 0;
     while (message[i] != '\0')
     {
-        strcat(pinum_string, &message[i]);
+        pinum_string[count] = message[i];
         i++;
+        count++;
     }
     pinum = atoi(pinum_string);
     i++;
+    count = 0;
     while (message[i] != '\0')
     {
-        strcat(name, &message[i]);
+        name[count] = message[i];
         i++;
+        count++;
     }
 
     if (get_bit((unsigned int *)(pointer + super->inode_bitmap_addr * (UFS_BLOCK_SIZE)), pinum) != 1)
     {
         char failure = '1';
 
-        strcat(reply, &failure);
+        reply[0] = failure;
         UDP_Write(sd, &addr, reply, BUFFER_SIZE);
         printf("server:: reply\n");
         return;
@@ -90,7 +94,7 @@ void lookup(char *message, super_t *super, struct sockaddr_in addr)
     {
         char failure = '1';
 
-        strcat(reply, &failure);
+        reply[0] = failure;
         UDP_Write(sd, &addr, reply, BUFFER_SIZE);
         printf("server:: reply\n");
         return;
@@ -100,7 +104,7 @@ void lookup(char *message, super_t *super, struct sockaddr_in addr)
     {
         for (int j = 0; j < UFS_BLOCK_SIZE / sizeof(dir_ent_t); j++)
         {
-            MFS_DirEnt_t *dir_entry = (MFS_DirEnt_t *)((pinode->direct[i] * UFS_BLOCK_SIZE) + sizeof(dir_ent_t) * j);
+            MFS_DirEnt_t *dir_entry = (MFS_DirEnt_t *)((pointer + (super->data_region_addr * (UFS_BLOCK_SIZE)) + pinode->direct[i] * UFS_BLOCK_SIZE) + sizeof(dir_ent_t) * j);
             if (strcmp(dir_entry->name, name) == 0)
             {
                 inum = dir_entry->inum;
@@ -110,7 +114,7 @@ void lookup(char *message, super_t *super, struct sockaddr_in addr)
         {
             char failure = '1';
 
-            strcat(reply, &failure);
+            reply[0] = failure;
             UDP_Write(sd, &addr, reply, BUFFER_SIZE);
             printf("server:: reply\n");
             return;
@@ -121,7 +125,7 @@ void lookup(char *message, super_t *super, struct sockaddr_in addr)
     {
         char inum_string[num_digits(inum) + 1];
         sprintf(inum_string, "%d", inum);
-        strcat(reply, &failure);
+        reply[0] = failure;
         strcat(reply, inum_string);
         UDP_Write(sd, &addr, reply, BUFFER_SIZE);
         printf("server:: reply\n");
@@ -129,7 +133,7 @@ void lookup(char *message, super_t *super, struct sockaddr_in addr)
     }
 }
 
-void stat(char *message, super_t *super, struct sockaddr_in addr)
+void mfs_stat(char *message, super_t *super, struct sockaddr_in addr)
 {
     char reply[BUFFER_SIZE];
     int i, inum, count;
@@ -144,10 +148,12 @@ void stat(char *message, super_t *super, struct sockaddr_in addr)
     inum_string[count - 1] = '\0';
 
     i = 1;
+    count = 0;
     while (message[i] != '\0')
     {
-        strcat(inum_string, &message[i]);
+        inum_string[count] = message[i];
         i++;
+        count++;
     }
     inum = atoi(inum_string);
 
@@ -155,7 +161,7 @@ void stat(char *message, super_t *super, struct sockaddr_in addr)
     {
         char failure = '1';
 
-        strcat(reply, &failure);
+        reply[0] = failure;
         UDP_Write(sd, &addr, reply, BUFFER_SIZE);
         printf("server:: reply\n");
         return;
@@ -169,7 +175,7 @@ void stat(char *message, super_t *super, struct sockaddr_in addr)
         char inode_size_string[num_digits(inode->size) + 1];
         sprintf(inode_type_string, "%d", inode->type);
         sprintf(inode_size_string, "%d", inode->size);
-        strcat(reply, &failure);
+        reply[0] = failure;
         strcat(reply, inode_type_string);
         strcat(reply, inode_size_string);
         UDP_Write(sd, &addr, reply, BUFFER_SIZE);
@@ -177,7 +183,7 @@ void stat(char *message, super_t *super, struct sockaddr_in addr)
     }
 }
 
-void write(char *message, super_t *super, struct sockaddr_in addr)
+void mfs_write(char *message, super_t *super, struct sockaddr_in addr)
 {
     char reply[BUFFER_SIZE];
     int i, inum, offset, nbytes, count;
@@ -217,30 +223,38 @@ void write(char *message, super_t *super, struct sockaddr_in addr)
     char nbytes_string[count];
     nbytes_string[count - 1] = '\0';
     i = 1;
+    count = 0;
     while (message[i] != '\0')
     {
-        strcat(inum_string, &message[i]);
+        inum_string[count] = message[i];
         i++;
+        count++;
     }
     inum = atoi(inum_string);
     i++;
+    count = 0;
     while (message[i] != '\0')
     {
-        strcat(buffer, &message[i]);
+        buffer[count] = message[i];
         i++;
+        count++;
     }
     i++;
+    count = 0;
     while (message[i] != '\0')
     {
-        strcat(offset_string, &message[i]);
+        offset_string[count] = message[i];
         i++;
+        count++;
     }
     offset = atoi(offset_string);
     i++;
+    count = 0;
     while (message[i] != '\0')
     {
-        strcat(nbytes_string, &message[i]);
+        nbytes_string[count] = message[i];
         i++;
+        count++;
     }
     nbytes = atoi(nbytes_string);
 
@@ -248,7 +262,7 @@ void write(char *message, super_t *super, struct sockaddr_in addr)
     {
         char failure = '1';
 
-        strcat(reply, &failure);
+        reply[0] = failure;
         UDP_Write(sd, &addr, reply, BUFFER_SIZE);
         printf("server:: reply\n");
         return;
@@ -260,7 +274,7 @@ void write(char *message, super_t *super, struct sockaddr_in addr)
     {
         char failure = '1';
 
-        strcat(reply, &failure);
+        reply[0] = failure;
         UDP_Write(sd, &addr, reply, BUFFER_SIZE);
         printf("server:: reply\n");
         return;
@@ -274,7 +288,7 @@ void write(char *message, super_t *super, struct sockaddr_in addr)
         i = 0;
         while (i < nbytes)
         {
-            file_pointer = buffer[i];
+            *file_pointer = buffer[i];
             i++;
             if (block_pointer_offset + i == UFS_BLOCK_SIZE)
             {
@@ -288,22 +302,22 @@ void write(char *message, super_t *super, struct sockaddr_in addr)
                     {
                         char failure = '1';
 
-                        strcat(reply, &failure);
+                        reply[0] = failure;
                         UDP_Write(sd, &addr, reply, BUFFER_SIZE);
                         printf("server:: reply\n");
                         return;
                     }
                     char *data_bitmap_pointer = (pointer + (super->data_bitmap_addr * (UFS_BLOCK_SIZE)));
                     i = 0;
-                    while (data_bitmap_pointer == '1')
+                    while (get_bit((unsigned int *)data_bitmap_pointer, i) == 1)
                     {
                         i++;
-                        data_bitmap_pointer++;
                     }
-                    data_bitmap_pointer = '1';
+                    set_bit((unsigned int *)data_bitmap_pointer, i);
                     file_pointer = (pointer + (super->data_region_addr * (UFS_BLOCK_SIZE))) + (i * (UFS_BLOCK_SIZE));
                     inode->direct[direct_pointer_index + 1] = i;
                 }
+                block_pointer_offset = 0;
             }
             else
             {
@@ -313,20 +327,29 @@ void write(char *message, super_t *super, struct sockaddr_in addr)
     }
     else
     {
+        if (offset + nbytes > UFS_BLOCK_SIZE)
+        {
+            char failure = '1';
+
+            reply[0] = failure;
+            UDP_Write(sd, &addr, reply, BUFFER_SIZE);
+            printf("server:: reply\n");
+            return;
+        }
         char *data_bitmap_pointer = (pointer + (super->data_bitmap_addr * (UFS_BLOCK_SIZE)));
         i = 0;
-        while (data_bitmap_pointer == '1')
+        while (*data_bitmap_pointer == '1')
         {
             i++;
             data_bitmap_pointer++;
         }
-        data_bitmap_pointer = '1';
-        char *file_pointer = (pointer + (super->data_region_addr * (UFS_BLOCK_SIZE))) + (i * (UFS_BLOCK_SIZE));
+        *data_bitmap_pointer = '1';
+        char *file_pointer = (pointer + (super->data_region_addr * (UFS_BLOCK_SIZE))) + (i * (UFS_BLOCK_SIZE)) + offset;
         inode->direct[0] = i;
         i = 0;
         while (i < nbytes)
         {
-            file_pointer = buffer[i];
+            *file_pointer = buffer[i];
             i++;
             file_pointer++;
         }
@@ -334,12 +357,389 @@ void write(char *message, super_t *super, struct sockaddr_in addr)
 
     if (failure == '0')
     {
-        strcat(reply, &failure);
+        reply[0] = failure;
         UDP_Write(sd, &addr, reply, BUFFER_SIZE);
         printf("server:: reply\n");
         return;
     }
-    return -1;
+    return;
+}
+
+void mfs_read(char *message, super_t *super, struct sockaddr_in addr)
+{
+    char reply[BUFFER_SIZE];
+    int i, inum, offset, nbytes, count;
+    char failure = '0';
+    count = 1;
+    while (message[count] != '\0')
+    {
+        count++;
+    }
+    char inum_string[count];
+    inum_string[count - 1] = '\0';
+    i = count + 1;
+    count = 1;
+    while (message[i] != '\0')
+    {
+        count++;
+        i++;
+    }
+    char offset_string[count];
+    offset_string[count - 1] = '\0';
+    i++;
+    count = 1;
+    while (message[i] != '\0')
+    {
+        count++;
+        i++;
+    }
+    char nbytes_string[count];
+    nbytes_string[count - 1] = '\0';
+    i = 1;
+    count = 0;
+    while (message[i] != '\0')
+    {
+        inum_string[count] = message[i];
+        i++;
+        count++;
+    }
+    inum = atoi(inum_string);
+    i++;
+    count = 0;
+    while (message[i] != '\0')
+    {
+        offset_string[count] = message[i];
+        i++;
+        count++;
+    }
+    offset = atoi(offset_string);
+    i++;
+    count = 0;
+    while (message[i] != '\0')
+    {
+        nbytes_string[count] = message[i];
+        i++;
+        count++;
+    }
+    nbytes = atoi(nbytes_string);
+
+    if (get_bit((unsigned int *)(pointer + super->inode_bitmap_addr * (UFS_BLOCK_SIZE)), inum) != 1)
+    {
+        char failure = '1';
+
+        reply[0] = failure;
+        UDP_Write(sd, &addr, reply, BUFFER_SIZE);
+        printf("server:: reply\n");
+        return;
+    }
+
+    inode_t *inode = (inode_t *)(pointer + (super->inode_region_addr * (UFS_BLOCK_SIZE)) + (inum * (sizeof(inode_t))));
+
+    if (inode->type == MFS_DIRECTORY)
+    {
+        char failure = '1';
+
+        reply[0] = failure;
+        UDP_Write(sd, &addr, reply, BUFFER_SIZE);
+        printf("server:: reply\n");
+        return;
+    }
+
+    if (inode->size < offset + nbytes)
+    {
+        char failure = '1';
+
+        reply[0] = failure;
+        UDP_Write(sd, &addr, reply, BUFFER_SIZE);
+        printf("server:: reply\n");
+        return;
+    }
+
+    int direct_pointer_index = offset / UFS_BLOCK_SIZE;
+    int block_pointer_offset = offset % UFS_BLOCK_SIZE;
+    char *file_pointer = (pointer + (super->data_region_addr * (UFS_BLOCK_SIZE))) + (inode->direct[direct_pointer_index] * (UFS_BLOCK_SIZE)) + block_pointer_offset;
+    i = 0;
+    while (i < nbytes)
+    {
+        reply[i + 1] = *file_pointer;
+        i++;
+        if (block_pointer_offset + i == UFS_BLOCK_SIZE)
+        {
+            if (inode->size > direct_pointer_index * UFS_BLOCK_SIZE)
+            {
+                file_pointer = (pointer + (super->data_region_addr * (UFS_BLOCK_SIZE))) + (inode->direct[direct_pointer_index + 1] * (UFS_BLOCK_SIZE));
+            }
+            else
+            {
+                char failure = '1';
+
+                reply[0] = failure;
+                UDP_Write(sd, &addr, reply, BUFFER_SIZE);
+                printf("server:: reply\n");
+                return;
+            }
+            block_pointer_offset = 0;
+        }
+        else
+        {
+            file_pointer++;
+        }
+    }
+
+    if (failure == '0')
+    {
+        reply[0] = failure;
+
+        UDP_Write(sd, &addr, reply, BUFFER_SIZE);
+        printf("server:: reply\n");
+        return;
+    }
+    return;
+}
+
+void mfs_create(char *message, super_t *super, struct sockaddr_in addr)
+{
+    char reply[BUFFER_SIZE];
+    int i, pinum, type, count;
+    char failure = '0';
+    count = 1;
+    while (message[count] != '\0')
+    {
+        count++;
+    }
+    char pinum_string[count];
+    pinum_string[count - 1] = '\0';
+    i = count + 1;
+    count = 1;
+    while (message[i] != '\0')
+    {
+        count++;
+        i++;
+    }
+    char type_string[count];
+    type_string[count - 1] = '\0';
+    i++;
+    count = 1;
+    while (message[i] != '\0')
+    {
+        count++;
+        i++;
+    }
+    char name[count];
+    name[count - 1] = '\0';
+    i = 1;
+    count = 0;
+    while (message[i] != '\0')
+    {
+        pinum_string[count] = message[i];
+        i++;
+        count++;
+    }
+    pinum = atoi(pinum_string);
+    i++;
+    count = 0;
+    while (message[i] != '\0')
+    {
+        type_string[count] = message[i];
+        i++;
+        count++;
+    }
+    type = atoi(type_string);
+    i++;
+    count = 0;
+    while (message[i] != '\0')
+    {
+        name[count] = message[i];
+        i++;
+        count++;
+    }
+
+    if (get_bit((unsigned int *)(pointer + super->inode_bitmap_addr * (UFS_BLOCK_SIZE)), pinum) != 1)
+    {
+        char failure = '1';
+
+        reply[0] = failure;
+        UDP_Write(sd, &addr, reply, BUFFER_SIZE);
+        printf("server:: reply\n");
+        return;
+    }
+
+    inode_t *pinode = (inode_t *)(pointer + (super->inode_region_addr * (UFS_BLOCK_SIZE)) + (pinum * (sizeof(inode_t))));
+
+    if (pinode->type != MFS_DIRECTORY)
+    {
+        char failure = '1';
+
+        reply[0] = failure;
+        UDP_Write(sd, &addr, reply, BUFFER_SIZE);
+        printf("server:: reply\n");
+        return;
+    }
+
+    for (i = 0; i < DIRECT_PTRS; i++)
+    {
+        for (int j = 0; j < UFS_BLOCK_SIZE / sizeof(dir_ent_t); j++)
+        {
+            MFS_DirEnt_t *dir_entry = (MFS_DirEnt_t *)((pointer + (super->data_region_addr * (UFS_BLOCK_SIZE)) + pinode->direct[i] * UFS_BLOCK_SIZE) + sizeof(dir_ent_t) * j);
+            if (strcmp(dir_entry->name, name) == 0)
+            {
+                reply[0] = failure;
+                UDP_Write(sd, &addr, reply, BUFFER_SIZE);
+                printf("server:: reply\n");
+                return;
+            }
+        }
+    }
+
+    for (i = 0; i < DIRECT_PTRS; i++)
+    {
+        for (int j = 0; j < UFS_BLOCK_SIZE / sizeof(dir_ent_t); j++)
+        {
+            MFS_DirEnt_t *dir_entry = (MFS_DirEnt_t *)((pointer + (super->data_region_addr * (UFS_BLOCK_SIZE)) + pinode->direct[i] * UFS_BLOCK_SIZE) + sizeof(dir_ent_t) * j);
+            if (dir_entry->inum == -1)
+            {
+                char *inode_bitmap_pointer = (pointer + (super->inode_bitmap_addr * (UFS_BLOCK_SIZE)));
+                i = 0;
+                while (get_bit((unsigned int *)inode_bitmap_pointer, i) == 1)
+                {
+                    i++;
+                }
+                set_bit((unsigned int *)inode_bitmap_pointer, i);
+                dir_entry->inum = i;
+                strcpy(dir_entry->name, name);
+            }
+        }
+    }
+
+    inode_t *inode = (inode_t *)(pointer + (super->inode_region_addr * (UFS_BLOCK_SIZE)) + (i * (sizeof(inode_t))));
+    inode->type = type;
+
+    if (type == MFS_REGULAR_FILE)
+    {
+        inode->size = 0;
+    }
+    else
+    {
+        inode->size = 2;
+
+        char *data_bitmap_pointer = (pointer + (super->data_bitmap_addr * (UFS_BLOCK_SIZE)));
+        i = 0;
+        while (get_bit((unsigned int *)data_bitmap_pointer, i) == 1)
+        {
+            i++;
+        }
+        set_bit((unsigned int *)data_bitmap_pointer, i);
+        inode->direct[0] = i;
+        MFS_DirEnt_t *current_directory_entry = (MFS_DirEnt_t *)((pointer + (super->data_region_addr * (UFS_BLOCK_SIZE)) + pinode->direct[0] * UFS_BLOCK_SIZE));
+        MFS_DirEnt_t *parent_directory_entry = (MFS_DirEnt_t *)((pointer + (super->data_region_addr * (UFS_BLOCK_SIZE)) + pinode->direct[0] * UFS_BLOCK_SIZE) + sizeof(dir_ent_t));
+
+        strcpy(current_directory_entry->name, ".");
+        strcpy(parent_directory_entry->name, "..");
+
+        current_directory_entry->inum = i;
+        parent_directory_entry->inum = pinum;
+    }
+
+    if (failure == '0')
+    {
+        reply[0] = failure;
+
+        UDP_Write(sd, &addr, reply, BUFFER_SIZE);
+        printf("server:: reply\n");
+        return;
+    }
+    return;
+}
+
+void mfs_unlink(char *message, super_t *super, struct sockaddr_in addr)
+{
+    char reply[BUFFER_SIZE];
+    int i, pinum, count;
+    char failure = '0';
+    count = 1;
+    while (message[count] != '\0')
+    {
+        count++;
+    }
+    char pinum_string[count];
+    pinum_string[count - 1] = '\0';
+    i = count + 1;
+    count = 1;
+    while (message[i] != '\0')
+    {
+        count++;
+        i++;
+    }
+    char name[count];
+    name[count - 1] = '\0';
+    i = 1;
+    while (message[i] != '\0')
+    {
+        strcat(pinum_string, &message[i]);
+        i++;
+    }
+    pinum = atoi(pinum_string);
+    i++;
+    while (message[i] != '\0')
+    {
+        strcat(name, &message[i]);
+        i++;
+    }
+
+    if (get_bit((unsigned int *)(pointer + super->inode_bitmap_addr * (UFS_BLOCK_SIZE)), pinum) != 1)
+    {
+        char failure = '1';
+
+        reply[0] = failure;
+        UDP_Write(sd, &addr, reply, BUFFER_SIZE);
+        printf("server:: reply\n");
+        return;
+    }
+
+    inode_t *pinode = (inode_t *)(pointer + (super->inode_region_addr * (UFS_BLOCK_SIZE)) + (pinum * (sizeof(inode_t))));
+
+    if (pinode->type != MFS_DIRECTORY)
+    {
+        char failure = '1';
+
+        reply[0] = failure;
+        UDP_Write(sd, &addr, reply, BUFFER_SIZE);
+        printf("server:: reply\n");
+        return;
+    }
+
+    for (i = 0; i < DIRECT_PTRS; i++)
+    {
+        for (int j = 0; j < UFS_BLOCK_SIZE / sizeof(dir_ent_t); j++)
+        {
+            MFS_DirEnt_t *dir_entry = (MFS_DirEnt_t *)((pointer + (super->data_region_addr * (UFS_BLOCK_SIZE)) + pinode->direct[i] * UFS_BLOCK_SIZE) + sizeof(dir_ent_t) * j);
+            if (strcmp(dir_entry->name, name) == 0)
+            {
+                char *data_bitmap_pointer = (pointer + (super->data_bitmap_addr * (UFS_BLOCK_SIZE)));
+                set_bit((unsigned int *)data_bitmap_pointer, dir_entry->inum);
+                dir_entry->inum = -1;
+            }
+            if (i == DIRECT_PTRS - 1)
+            {
+                char failure = '1';
+
+                reply[0] = failure;
+                UDP_Write(sd, &addr, reply, BUFFER_SIZE);
+                printf("server:: reply\n");
+                return;
+            }
+        }
+    }
+
+    if (failure == '0')
+    {
+        reply[0] = failure;
+
+        UDP_Write(sd, &addr, reply, BUFFER_SIZE);
+        printf("server:: reply\n");
+        return;
+    }
+    return;
 }
 
 void intHandler(int dummy)
@@ -381,153 +781,118 @@ int main(int argc, char *argv[])
         switch (identifier)
         {
         case '0':
-            lookup(message, super, addr);
+            mfs_lookup(message, super, addr);
             break;
         case '1':
-            stat(message, super, addr);
+            mfs_stat(message, super, addr);
             break;
-        // case '2':
-        //     i = 0;
-        //     while (message[i] != '\0')
-        //     {
-        //         i++;
-        //         strcat(inum_string, &message[i]);
-        //     }
-        //     inum = atoi(inum_string);
+        case '2':
+            mfs_write(message, super, addr);
+            break;
+        case '3':
+            mfs_read(message, super, addr);
+            break;
+            // case '3':
+            //     i = 0;
+            //     while (message[i] != '\0')
+            //     {
+            //         i++;
+            //         strcat(inum_string, &message[i]);
+            //     }
+            //     inum = atoi(inum_string);
+            //     while (message[i] != '\0')
+            //     {
+            //         i++;
+            //         strcat(offset_string, &message[i]);
+            //     }
+            //     offset = atoi(inum_string);
+            //     while (message[i] != '\0')
+            //     {
+            //         i++;
+            //         strcat(nbytes_string, &message[i]);
+            //     }
+            //     nbytes = atoi(inum_string);
+            //     offset = nbytes;
+            //     nbytes = offset;
+            //     break;
+            // case '4':
+            //     i = 0;
+            //     while (message[i] != '\0')
+            //     {
+            //         i++;
+            //         strcat(pinum_string, &message[i]);
+            //     }
+            //     pinum = atoi(pinum_string);
 
-        //     inode = (inode_t *)(pointer + (super->inode_region_addr * (UFS_BLOCK_SIZE)) + (inum * (sizeof(inode_t))));
+            //     if (get_bit((pointer + super->inode_bitmap_addr * (UFS_BLOCK_SIZE)), pinum) != 1)
+            //     {
+            //         char failure = '1';
 
-        //     if (inode->type == MFS_DIRECTORY)
-        //     {
-        //         char failure = '1';
+            //         strcat(reply, failure);
+            //         rc = UDP_Write(sd, &addr, reply, BUFFER_SIZE);
+            //         printf("server:: reply\n");
+            //         break;
+            //     }
+            //     while (message[i] != '\0')
+            //     {
+            //         i++;
+            //         strcat(type_string, &message[i]);
+            //     }
+            //     type = atoi(type_string);
+            //     while (message[i] != '\0')
+            //     {
+            //         i++;
+            //         strcat(name, &message[i]);
+            //     }
 
-        //         strcat(reply, &failure);
-        //         rc = UDP_Write(sd, &addr, reply, BUFFER_SIZE);
-        //         printf("server:: reply\n");
-        //         break;
-        //     }
+            //     inode_t *pinode = (inode_t *)(pointer + (super->inode_region_addr * (UFS_BLOCK_SIZE)) + (pinum * (sizeof(inode_t))));
 
-        //     while (message[i] != '\0')
-        //     {
-        //         i++;
-        //         strcat(buffer, &message[i]);
-        //     }
-        //     while (message[i] != '\0')
-        //     {
-        //         i++;
-        //         strcat(offset_string, &message[i]);
-        //     }
-        //     offset = atoi(inum_string);
-        //     while (message[i] != '\0')
-        //     {
-        //         i++;
-        //         strcat(nbytes_string, &message[i]);
-        //     }
-        //     nbytes = atoi(inum_string);
-        //     offset = nbytes;
-        //     nbytes = offset;
-        //     break;
-        // case '3':
-        //     i = 0;
-        //     while (message[i] != '\0')
-        //     {
-        //         i++;
-        //         strcat(inum_string, &message[i]);
-        //     }
-        //     inum = atoi(inum_string);
-        //     while (message[i] != '\0')
-        //     {
-        //         i++;
-        //         strcat(offset_string, &message[i]);
-        //     }
-        //     offset = atoi(inum_string);
-        //     while (message[i] != '\0')
-        //     {
-        //         i++;
-        //         strcat(nbytes_string, &message[i]);
-        //     }
-        //     nbytes = atoi(inum_string);
-        //     offset = nbytes;
-        //     nbytes = offset;
-        //     break;
-        // case '4':
-        //     i = 0;
-        //     while (message[i] != '\0')
-        //     {
-        //         i++;
-        //         strcat(pinum_string, &message[i]);
-        //     }
-        //     pinum = atoi(pinum_string);
+            //     if (pinode->type != MFS_DIRECTORY)
+            //     {
+            //         char failure = '1';
 
-        //     if (get_bit((pointer + super->inode_bitmap_addr * (UFS_BLOCK_SIZE)), pinum) != 1)
-        //     {
-        //         char failure = '1';
+            //         reply[0] = failure;
+            //         rc = UDP_Write(sd, &addr, reply, BUFFER_SIZE);
+            //         printf("server:: reply\n");
+            //         break;
+            //     }
 
-        //         strcat(reply, failure);
-        //         rc = UDP_Write(sd, &addr, reply, BUFFER_SIZE);
-        //         printf("server:: reply\n");
-        //         break;
-        //     }
-        //     while (message[i] != '\0')
-        //     {
-        //         i++;
-        //         strcat(type_string, &message[i]);
-        //     }
-        //     type = atoi(type_string);
-        //     while (message[i] != '\0')
-        //     {
-        //         i++;
-        //         strcat(name, &message[i]);
-        //     }
+            //     for (i = 0; i < DIRECT_PTRS; i++)
+            //     {
+            //         for (int j = 0; j < UFS_BLOCK_SIZE / sizeof(dir_ent_t); j++)
+            //         {
+            //             MFS_DirEnt_t *dir_entry = (MFS_DirEnt_t *)(pinode->direct[i] * UFS_BLOCK_SIZE) + sizeof(dir_ent_t) * j;
+            //             if (get_bit((pointer + super->data_bitmap_addr * (UFS_BLOCK_SIZE)), '?') != 1)
+            //             {
+            //                 set_bit((pointer + super->data_bitmap_addr * (UFS_BLOCK_SIZE)), '?');
+            //                 dir_entry->name = buffer;
+            //                 dir_entry->inum = '?';
+            //             }
+            //         }
+            //         if (i == DIRECT_PTRS - 1)
+            //         {
+            //             char failure = '1';
 
-        //     inode_t *pinode = (inode_t *)(pointer + (super->inode_region_addr * (UFS_BLOCK_SIZE)) + (pinum * (sizeof(inode_t))));
-
-        //     if (pinode->type != MFS_DIRECTORY)
-        //     {
-        //         char failure = '1';
-
-        //         strcat(reply, &failure);
-        //         rc = UDP_Write(sd, &addr, reply, BUFFER_SIZE);
-        //         printf("server:: reply\n");
-        //         break;
-        //     }
-
-        //     for (i = 0; i < DIRECT_PTRS; i++)
-        //     {
-        //         for (int j = 0; j < UFS_BLOCK_SIZE / sizeof(dir_ent_t); j++)
-        //         {
-        //             MFS_DirEnt_t *dir_entry = (MFS_DirEnt_t *)(pinode->direct[i] * UFS_BLOCK_SIZE) + sizeof(dir_ent_t) * j;
-        //             if (get_bit((pointer + super->data_bitmap_addr * (UFS_BLOCK_SIZE)), '?') != 1)
-        //             {
-        //                 set_bit((pointer + super->data_bitmap_addr * (UFS_BLOCK_SIZE)), '?');
-        //                 dir_entry->name = buffer;
-        //                 dir_entry->inum = '?';
-        //             }
-        //         }
-        //         if (i == DIRECT_PTRS - 1)
-        //         {
-        //             char failure = '1';
-
-        //             strcat(reply, &failure);
-        //             rc = UDP_Write(sd, &addr, reply, BUFFER_SIZE);
-        //             printf("server:: reply\n");
-        //         }
-        //     }
-        //     break;
-        // case '5':
-        //     i = 0;
-        //     while (message[i] != '\0')
-        //     {
-        //         i++;
-        //         strcat(pinum_string, &message[i]);
-        //     }
-        //     pinum = atoi(pinum_string);
-        //     while (message[i] != '\0')
-        //     {
-        //         i++;
-        //         strcat(name, &message[i]);
-        //     }
-        //     break;
+            //             reply[0] = failure;
+            //             rc = UDP_Write(sd, &addr, reply, BUFFER_SIZE);
+            //             printf("server:: reply\n");
+            //         }
+            //     }
+            //     break;
+            // case '5':
+            //     i = 0;
+            //     while (message[i] != '\0')
+            //     {
+            //         i++;
+            //         strcat(pinum_string, &message[i]);
+            //     }
+            //     pinum = atoi(pinum_string);
+            //     while (message[i] != '\0')
+            //     {
+            //         i++;
+            //         strcat(name, &message[i]);
+            //     }
+            break;
         default:
             printf("invalid identifier");
             break;

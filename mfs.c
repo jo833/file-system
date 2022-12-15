@@ -52,7 +52,7 @@ int MFS_Lookup(int pinum, char *name)
     char pinum_string[num_digits(pinum) + 1];
     sprintf(pinum_string, "%d", pinum);
 
-    strcat(message, &identifier);
+    message[0] = identifier;
     strcat(message, pinum_string);
     strcat(message, name);
 
@@ -66,7 +66,7 @@ int MFS_Lookup(int pinum, char *name)
         }
         // timer needed in order to send another write if reply is not recieved in time
         printf("client:: wait for reply...\n");
-        rc = UDP_Read(fd, &addrRcv, message, BUFFER_SIZE);
+        UDP_Read(fd, &addrRcv, message, BUFFER_SIZE);
         printf("client:: got reply [size:%d contents:(%s)\n", rc, message);
 
         if (rc != -1)
@@ -83,10 +83,12 @@ int MFS_Lookup(int pinum, char *name)
             }
             char inum_string[count];
             inum_string[count - 1] = '\0';
+            count = 0;
             while (message[i] != '\0')
             {
-                strcat(inum_string, &message[i]);
+                inum_string[count] = message[i];
                 i++;
+                count++;
             }
             return atoi(inum_string);
         }
@@ -106,7 +108,7 @@ int MFS_Stat(int inum, MFS_Stat_t *m)
     char inum_string[num_digits(inum) + 1];
     sprintf(inum_string, "%d", inum);
 
-    strcat(message, &identifier);
+    message[0] = identifier;
     strcat(message, inum_string);
 
     while (1)
@@ -145,16 +147,20 @@ int MFS_Stat(int inum, MFS_Stat_t *m)
             char size_string[count];
             size_string[count - 1] = '\0';
             i = 1;
+            count = 0;
             while (message[i] != '\0')
             {
-                strcat(type_string, &message[i]);
+                type_string[count] = message[i];
                 i++;
+                count++;
             }
             i++;
+            count = 0;
             while (message[i] != '\0')
             {
-                strcat(size_string, &message[i]);
+                size_string[count] = message[i];
                 i++;
+                count++;
             }
 
             m->type = atoi(type_string);
@@ -162,13 +168,10 @@ int MFS_Stat(int inum, MFS_Stat_t *m)
 
             return 0;
         }
+
+        wait((int *)1000);
     }
     return -1;
-
-    // use inum to search for file
-    // throw error if inum does not exist
-    // once the file is located, use inode_t to change MFS_Stat_t to include the proper type/size
-    return 0;
 }
 /*writes a buffer of size nbytes (max size: 4096 bytes) at the byte offset specified by offset.
 Returns 0 on success, -1 on failure.
@@ -185,7 +188,7 @@ int MFS_Write(int inum, char *buffer, int offset, int nbytes)
     char nbytes_string[num_digits(nbytes) + 1];
     sprintf(nbytes_string, "%d", nbytes);
 
-    strcat(message, &identifier);
+    message[0] = identifier;
     strcat(message, inum_string);
     strcat(message, buffer);
     strcat(message, offset_string);
@@ -203,13 +206,20 @@ int MFS_Write(int inum, char *buffer, int offset, int nbytes)
         printf("client:: wait for reply...\n");
         rc = UDP_Read(fd, &addrRcv, message, BUFFER_SIZE);
         printf("client:: got reply [size:%d contents:(%s)\n", rc, message);
+
+        if (rc != -1)
+        {
+            if (message[0] == '1')
+            {
+                return -1;
+            }
+            return 0;
+        }
+
+        wait((int *)1000);
     }
 
-    // use inum to index inode bitmap and check if its allocated, if not throw error
-    // then use inum to find inode in inode table
-    // use offset to determine which inode pointer to use to access what block, then write buffer to that block
-
-    return 0;
+    return -1;
 }
 /*reads nbytes of data (max size 4096 bytes) specified by the byte offset offset into the buffer from file specified by inum.
 The routine should work for either a file or directory; directories should return data in the format specified by MFS_DirEnt_t.
@@ -226,7 +236,7 @@ int MFS_Read(int inum, char *buffer, int offset, int nbytes)
     char nbytes_string[num_digits(nbytes) + 1];
     sprintf(nbytes_string, "%d", nbytes);
 
-    strcat(message, &identifier);
+    message[0] = identifier;
     strcat(message, inum_string);
     strcat(message, offset_string);
     strcat(message, nbytes_string);
@@ -243,13 +253,26 @@ int MFS_Read(int inum, char *buffer, int offset, int nbytes)
         printf("client:: wait for reply...\n");
         rc = UDP_Read(fd, &addrRcv, message, BUFFER_SIZE);
         printf("client:: got reply [size:%d contents:(%s)\n", rc, message);
+
+        if (rc != -1)
+        {
+            if (message[0] == '1')
+            {
+                return -1;
+            }
+            int i = 1;
+            while (message[i] != '\0')
+            {
+                buffer[i - 1] = message[i];
+                i++;
+            }
+            return buffer;
+        }
+
+        wait((int *)1000);
     }
 
-    // use inum to index inode bitmap and check if its allocated, if not throw error
-    // then use inum to find inode in inode table
-    // use offset to determine which inode pointer to use to access what block, then set buffer to that data
-
-    return 0;
+    return -1;
 }
 // makes a file (type == MFS_REGULAR_FILE) or directory (type == MFS_DIRECTORY) in the parent directory specified by pinum of name name.
 // Returns 0 on success, -1 on failure. Failure modes: pinum does not exist, or name is too long.
@@ -264,7 +287,7 @@ int MFS_Creat(int pinum, int type, char *name)
     char type_string[num_digits(type) + 1];
     sprintf(type_string, "%d", type);
 
-    strcat(message, &identifier);
+    message[0] = identifier;
     strcat(message, pinum_string);
     strcat(message, type_string);
     strcat(message, name);
@@ -281,15 +304,20 @@ int MFS_Creat(int pinum, int type, char *name)
         printf("client:: wait for reply...\n");
         rc = UDP_Read(fd, &addrRcv, message, BUFFER_SIZE);
         printf("client:: got reply [size:%d contents:(%s)\n", rc, message);
+
+        if (rc != -1)
+        {
+            if (message[0] == '1')
+            {
+                return -1;
+            }
+            return 0;
+        }
+
+        wait((int *)1000);
     }
 
-    // Use look up to check if the name already exists, throw error if it does
-    // find open spot in inode table, allocate it
-    // use that inum to create new inode in inode table
-    // find open spot in data table, allocate it
-    // use that to index data blocks, set name
-
-    return 0;
+    return -1;
 }
 /*removes the file or directory name from the directory specified by pinum.
 0 on success, -1 on failure. Failure modes: pinum does not exist, directory is NOT empty.
@@ -302,7 +330,7 @@ int MFS_Unlink(int pinum, char *name)
     char pinum_string[num_digits(pinum) + 1];
     sprintf(pinum_string, "%d", pinum);
 
-    strcat(message, &identifier);
+    message[0] = identifier;
     strcat(message, pinum_string);
     strcat(message, name);
 
@@ -318,14 +346,19 @@ int MFS_Unlink(int pinum, char *name)
         printf("client:: wait for reply...\n");
         rc = UDP_Read(fd, &addrRcv, message, BUFFER_SIZE);
         printf("client:: got reply [size:%d contents:(%s)\n", rc, message);
-    }
-    return 0;
 
-    // use pinum to find parent directory
-    // loop through parent directory to find name
-    // if name doesn't exist, throw an error
-    // if name is a non-empty directory, throw an error
-    // otherwise remove the directory/file and update data accordingly
+        if (rc != -1)
+        {
+            if (message[0] == '1')
+            {
+                return -1;
+            }
+            return 0;
+        }
+
+        wait((int *)1000);
+    }
+    return -1;
 }
 // just tells the server to force all of its data structures to disk and shutdown by calling exit(0).
 // This interface will mostly be used for testing purposes.
