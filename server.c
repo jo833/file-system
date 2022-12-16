@@ -78,15 +78,17 @@ void mfs_lookup(char *message, super_t *super, struct sockaddr_in addr)
         count++;
     }
 
-    if (get_bit((unsigned int *)(pointer + super->inode_bitmap_addr * (UFS_BLOCK_SIZE)), pinum) != 1)
-    {
-        char failure = '1';
+    // TODO: print all these variables.
 
-        reply[0] = failure;
-        UDP_Write(sd, &addr, reply, BUFFER_SIZE);
-        printf("server:: reply\n");
-        return;
-    }
+    // if (get_bit((unsigned int *)(pointer + super->inode_bitmap_addr * (UFS_BLOCK_SIZE)), pinum) != 1)
+    // {
+    //     char failure = '1';
+
+    //     reply[0] = failure;
+    //     UDP_Write(sd, &addr, reply, BUFFER_SIZE);
+    //     printf("server:: reply\n");
+    //     return;
+    // }
 
     inode_t *pinode = (inode_t *)(pointer + (super->inode_region_addr * (UFS_BLOCK_SIZE)) + (pinum * (sizeof(inode_t))));
 
@@ -99,12 +101,14 @@ void mfs_lookup(char *message, super_t *super, struct sockaddr_in addr)
         printf("server:: reply\n");
         return;
     }
+    printf("Checked that directory");
 
     for (i = 0; i < DIRECT_PTRS; i++)
     {
         for (int j = 0; j < UFS_BLOCK_SIZE / sizeof(dir_ent_t); j++)
         {
             MFS_DirEnt_t *dir_entry = (MFS_DirEnt_t *)((pointer + (super->data_region_addr * (UFS_BLOCK_SIZE)) + pinode->direct[i] * UFS_BLOCK_SIZE) + sizeof(dir_ent_t) * j);
+            
             if (dir_entry->inum != -1 && strcmp(dir_entry->name, name) == 0)
             {
                 inum = dir_entry->inum;
@@ -183,7 +187,7 @@ void mfs_stat(char *message, super_t *super, struct sockaddr_in addr)
     }
 }
 
-void mfs_write(char *message, super_t *super, struct sockaddr_in addr)
+void mfs_write(char *message, super_t *super, struct sockaddr_in addr, int fd)
 {
     char reply[BUFFER_SIZE];
     int i, inum, offset, nbytes, count;
@@ -357,6 +361,8 @@ void mfs_write(char *message, super_t *super, struct sockaddr_in addr)
 
     if (failure == '0')
     {
+        fsync(fd);
+
         reply[0] = failure;
         UDP_Write(sd, &addr, reply, BUFFER_SIZE);
         printf("server:: reply\n");
@@ -497,7 +503,7 @@ void mfs_read(char *message, super_t *super, struct sockaddr_in addr)
     return;
 }
 
-void mfs_create(char *message, super_t *super, struct sockaddr_in addr)
+void mfs_create(char *message, super_t *super, struct sockaddr_in addr, int fd)
 {
     char reply[BUFFER_SIZE];
     int i, pinum, type, count;
@@ -554,15 +560,20 @@ void mfs_create(char *message, super_t *super, struct sockaddr_in addr)
         count++;
     }
 
+    printf("LOG: About to call get_bit\n");
     if (get_bit((unsigned int *)(pointer + super->inode_bitmap_addr * (UFS_BLOCK_SIZE)), pinum) != 1)
     {
+        printf("LOG: Called get_bit\n");
         char failure = '1';
 
         reply[0] = failure;
+        // reply[1] = get_bit((unsigned int *)(pointer + super->inode_bitmap_addr * (UFS_BLOCK_SIZE)), pinum);
         UDP_Write(sd, &addr, reply, BUFFER_SIZE);
         printf("server:: reply\n");
         return;
     }
+    printf("LOG: Called get_bit\n");
+
 
     inode_t *pinode = (inode_t *)(pointer + (super->inode_region_addr * (UFS_BLOCK_SIZE)) + (pinum * (sizeof(inode_t))));
 
@@ -639,9 +650,9 @@ void mfs_create(char *message, super_t *super, struct sockaddr_in addr)
         current_directory_entry->inum = i;
         parent_directory_entry->inum = pinum;
     }
-
     if (failure == '0')
     {
+        fsync(fd);
         reply[0] = failure;
 
         UDP_Write(sd, &addr, reply, BUFFER_SIZE);
@@ -651,7 +662,7 @@ void mfs_create(char *message, super_t *super, struct sockaddr_in addr)
     return;
 }
 
-void mfs_unlink(char *message, super_t *super, struct sockaddr_in addr)
+void mfs_unlink(char *message, super_t *super, struct sockaddr_in addr, int fd)
 {
     char reply[BUFFER_SIZE];
     int i, pinum, count;
@@ -743,8 +754,9 @@ void mfs_unlink(char *message, super_t *super, struct sockaddr_in addr)
 
     if (failure == '0')
     {
-        reply[0] = failure;
+        fsync(fd);
 
+        reply[0] = failure;
         UDP_Write(sd, &addr, reply, BUFFER_SIZE);
         printf("server:: reply\n");
         return;
@@ -752,6 +764,18 @@ void mfs_unlink(char *message, super_t *super, struct sockaddr_in addr)
     return;
 }
 
+void mfs_shutdown(struct sockaddr_in addr, char *pointer, size_t filesize, int fd)
+{
+    char reply[BUFFER_SIZE];
+    msync(pointer, filesize, MS_SYNC);
+    fsync(fd);
+
+    reply[0] = '0';
+    UDP_Write(sd, &addr, reply, BUFFER_SIZE);
+    printf("server:: reply\n");
+    exit(0);
+    return;
+}
 void intHandler(int dummy)
 {
     UDP_Close(sd);
@@ -761,7 +785,6 @@ void intHandler(int dummy)
 // server code
 int main(int argc, char *argv[])
 {
-
     signal(SIGINT, intHandler);
     int port;
     port = strtol(argv[1], NULL, 10);
@@ -774,7 +797,7 @@ int main(int argc, char *argv[])
         exit(0);
     }
     fseek(fd, 0L, SEEK_SET);
-    pointer = mmap(NULL, filesize, PROT_WRITE, MAP_PRIVATE, fileno(fd), 0);
+    pointer = mmap(NULL, filesize, PROT_WRITE, MAP_SHARED, fileno(fd), 0);
     super_t *super = (super_t *)pointer;
 
     sd = UDP_Open(port);
@@ -797,25 +820,23 @@ int main(int argc, char *argv[])
             mfs_stat(message, super, addr);
             break;
         case '2':
-            mfs_write(message, super, addr);
+            mfs_write(message, super, addr, sd);
             break;
         case '3':
             mfs_read(message, super, addr);
             break;
         case '4':
-            mfs_create(message, super, addr);
+            mfs_create(message, super, addr, sd);
+            break;
         case '5':
-            mfs_unlink(message, super, addr);
+            mfs_unlink(message, super, addr, sd);
+            break;
+        case '6':
+            mfs_shutdown(addr, pointer, filesize, sd);
+            break;
         default:
             printf("invalid identifier");
             break;
-        }
-        if (rc > 0)
-        {
-            char reply[BUFFER_SIZE];
-            sprintf(reply, "goodbye world");
-            rc = UDP_Write(sd, &addr, reply, BUFFER_SIZE);
-            printf("server:: reply\n");
         }
     }
     return 0;

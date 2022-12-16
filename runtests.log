@@ -1,0 +1,88 @@
+('starting', 'build')
+
+**********************************************************************
+
+Test build
+build project using make
+
+**********************************************************************
+Trying to build project using make
+make
+gcc -Wall -Werror  -c server.c
+gcc server.o -o server udp.c
+gcc -fPIC -g -c -Wall mkfs.c
+gcc -fPIC -g -c -Wall mfs.c
+gcc -fPIC -g -c -Wall udp.c
+gcc -shared -Wl,-soname,libmfs.so.1 \-o libmfs.so mkfs.o mfs.o udp.o -lc
+gcc -Wall -Werror  mkfs.c -o mkfs
+
+
+test build PASSED
+ (build project using make)
+
+('starting', 'shutdown')
+
+**********************************************************************
+
+Test shutdown
+init server and client then call shutdown
+
+**********************************************************************
+total blocks        36
+  inodes            32 [size of each: 128]
+  data blocks       32
+layout details
+  inode bitmap address/len 1 [1]
+  data bitmap address/len  2 [1]
+Starting server on port 5111
+/tmp/tmpjl7EiN/p/server 5111 /home/deutsch/private/CS537/Project_4_FileSystem/test.img
+server:: waiting...
+server:: read message [size:1000 contents:(6ô>œU)]
+server:: reply
+client:: beginning init
+client:: init sd to 7
+client:: finished init
+client:: wait for reply...
+client:: got reply [size:1000 contents:(0)]
+client:: starting shutdown
+client:: finishing shutdown
+
+
+test shutdown PASSED
+ (init server and client then call shutdown)
+
+('starting', 'creat')
+
+**********************************************************************
+
+Test creat
+creat a file and check with lookup
+
+**********************************************************************
+total blocks        36
+  inodes            32 [size of each: 128]
+  data blocks       32
+layout details
+  inode bitmap address/len 1 [1]
+  data bitmap address/len  2 [1]
+Starting server on port 9680
+/tmp/tmpjl7EiN/p/server 9680 /home/deutsch/private/CS537/Project_4_FileSystem/test.img
+client:: beginning init
+client:: init sd to 7
+client:: finished init
+client:: starting MFS_Creat
+client:: name test not too long
+client:: sd is 7
+client:: wait for reply...
+client:: got reply [size:1000 contents:(1)
+client:: MFS_Creat is failing :(
+client:: get_bit returns 0
+Failure: MFS_Creat returned failure inum=0 type=1 name='test'
+
+
+test creat FAILED
+ (creat a file and check with lookup)
+ MFS_Creat returned failure inum=0 type=1 name='test'
+
+Skipped 16 tests.
+To keep testing after failing a test, use flag '-c' or '--continue'
