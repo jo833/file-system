@@ -7,8 +7,11 @@
 
 int MIN_PORT = 20000;
 int MAX_PORT = 40000;
-int fd;
+int sd;
 struct sockaddr_in addrSnd, addrRcv;
+
+// Use Ctrl-C first
+// if it doesn't work, new terminal: ps aux | grep "/home/cs537-1/tests/p4/p4-test/project4.py"  | cut -d' '  -f 4 | xargs kill -9
 
 int num_digits(int num)
 {
@@ -24,14 +27,20 @@ int num_digits(int num)
 // takes a host name and port number and uses those to find the server exporting the file system.
 int MFS_Init(char *hostname, int port)
 {
-    fd = UDP_Open(port);
-    int rc = UDP_FillSockAddr(&addrSnd, hostname, 10000);
+    printf("client:: beginning MFS_Init\n");
+    sd = UDP_Open(51328);
+
+    printf("client:: init sd to %d\n", sd);
+    int rc = UDP_FillSockAddr(&addrSnd, hostname, port);
+    //    printf("client:: init addrSnd to %s\n", addrSnd);
 
     if (rc < 0)
     {
-        printf("client:: failed to send\n");
+        printf("client:: failed to send (UDP_FillSockAddr)\n");
         exit(1);
     }
+
+    printf("client:: finished init\n");
     return 0;
 }
 // takes the parent inode number (which should be the inode number of a directory) and looks up the entry name in it.
@@ -40,11 +49,15 @@ int MFS_Init(char *hostname, int port)
 // Failure modes: invalid pinum, name does not exist in pinum.
 int MFS_Lookup(int pinum, char *name)
 {
-
     if (pinum < 0 || pinum >= MFS_BLOCK_SIZE)
     {
         return -1;
     }
+    printf("client:: starting MFS_Lookup\n");
+
+    printf("client:: sd is %d\n", sd);
+
+    printf("client:: constructing message\n");
     char message[BUFFER_SIZE];
     char identifier = '0';
     char pinum_string[num_digits(pinum) + 1];
@@ -54,29 +67,36 @@ int MFS_Lookup(int pinum, char *name)
     strcat(message, pinum_string);
     strcat(message, name);
 
+    printf("client:: identifier is %c\n", identifier);
+    printf("client:: pinum_string is %s\n", pinum_string);
+    printf("client:: message is %s\n", message);
+
     while (1)
     {
-        int rc = UDP_Write(fd, &addrSnd, message, BUFFER_SIZE);
+        int rc = UDP_Write(sd, &addrSnd, message, BUFFER_SIZE);
         if (rc < 0)
         {
-            printf("client:: failed to send\n");
+            printf("client:: failed to send (UDP_Write)\n");
             exit(1);
         }
-        // timer needed in order to send another write if reply is not recieved in time
-        printf("client:: wait for reply...\n");
-        UDP_Read(fd, &addrRcv, message, BUFFER_SIZE);
-        printf("client:: got reply [size:%d contents:(%s)\n", rc, message);
+        // return - 1;
 
+        printf("client:: wait for reply...\n");
+        rc = UDP_Read(sd, &addrRcv, message, BUFFER_SIZE);
+        printf("client:: got reply [size:%d message:(%s)]\n", rc, message);
+            
         if (rc != -1)
         {
             if (message[0] == '1')
             {
+                printf("client:: reply recieved was a failure\n");
                 return -1;
             }
+            printf("client:: reading reply...\n");
             int i = 1;
             int count = 1;
             while (message[count] != '\0')
-            {
+            { 
                 count++;
             }
             char inum_string[count];
@@ -88,10 +108,12 @@ int MFS_Lookup(int pinum, char *name)
                 i++;
                 count++;
             }
+
+            printf("client:: inum_string is %s\n", inum_string);
             return atoi(inum_string);
         }
 
-        wait((int *)1000);
+        sleep(1);
     }
     return -1;
 }
@@ -104,6 +126,11 @@ int MFS_Stat(int inum, MFS_Stat_t *m)
     {
         return -1;
     }
+    printf("client:: starting MFS_Stat\n");
+
+    printf("client:: sd is %d\n", sd);
+
+    printf("client:: constructing message\n");
     char message[BUFFER_SIZE];
     char identifier = '1';
     char inum_string[num_digits(inum) + 1];
@@ -112,25 +139,31 @@ int MFS_Stat(int inum, MFS_Stat_t *m)
     message[0] = identifier;
     strcat(message, inum_string);
 
+    printf("client:: identifier is %c\n", identifier);
+    printf("client:: inum_string is %s\n", inum_string);
+    printf("client:: message is %s\n", message);
+
     while (1)
     {
-        int rc = UDP_Write(fd, &addrSnd, message, BUFFER_SIZE);
+        int rc = UDP_Write(sd, &addrSnd, message, BUFFER_SIZE);
         if (rc < 0)
         {
-            printf("client:: failed to send\n");
+            printf("client:: failed to send (UDP_Write)\n");
             exit(1);
         }
         // timer needed in order to send another write if reply is not recieved in time
         printf("client:: wait for reply...\n");
-        rc = UDP_Read(fd, &addrRcv, message, BUFFER_SIZE);
-        printf("client:: got reply [size:%d contents:(%s)\n", rc, message);
+        rc = UDP_Read(sd, &addrRcv, message, BUFFER_SIZE);
+        printf("client:: got reply [size:%d contents:(%s)]\n", rc, message);
 
         if (rc != -1)
         {
             if (message[0] == '1')
             {
+                printf("client:: reply recieved was a failure\n");
                 return -1;
             }
+            printf("client:: reading reply...\n");
             int count = 1;
             while (message[count] != '\0')
             {
@@ -163,6 +196,8 @@ int MFS_Stat(int inum, MFS_Stat_t *m)
                 i++;
                 count++;
             }
+            printf("client:: type_string is %s\n", type_string);
+            printf("client:: size_string is %s\n", type_string);
 
             m->type = atoi(type_string);
             m->size = atoi(size_string);
@@ -170,7 +205,7 @@ int MFS_Stat(int inum, MFS_Stat_t *m)
             return 0;
         }
 
-        wait((int *)1000);
+        sleep(1);
     }
     return -1;
 }
@@ -179,11 +214,15 @@ Returns 0 on success, -1 on failure.
 Failure modes: invalid inum, invalid nbytes, invalid offset, not a regular file (because you can't write to directories).*/
 int MFS_Write(int inum, char *buffer, int offset, int nbytes)
 {
-
     if (inum < 0 || inum >= MFS_BLOCK_SIZE || nbytes < 0 || nbytes >= MFS_BLOCK_SIZE)
     {
         return -1;
     }
+    printf("client:: starting MFS_Write\n");
+
+    printf("client:: sd is %d\n", sd);
+
+    printf("client:: constructing message\n");
     char message[BUFFER_SIZE];
     char identifier = '2';
     char inum_string[num_digits(inum) + 1];
@@ -199,29 +238,38 @@ int MFS_Write(int inum, char *buffer, int offset, int nbytes)
     strcat(message, offset_string);
     strcat(message, nbytes_string);
 
+    printf("client:: identifier is %c\n", identifier);
+    printf("client:: inum_string is %s\n", inum_string);
+    printf("client:: buffer is %s\n", buffer);
+    printf("client:: offset_string is %s\n", offset_string);
+    printf("client:: nbytes_string is %s\n", nbytes_string);
+    printf("client:: message is %s\n", message);
+
     while (1)
     {
-        int rc = UDP_Write(fd, &addrSnd, message, BUFFER_SIZE);
+        int rc = UDP_Write(sd, &addrSnd, message, BUFFER_SIZE);
         if (rc < 0)
         {
-            printf("client:: failed to send\n");
+            printf("client:: failed to send (UDP_Write)\n");
             exit(1);
         }
         // timer needed in order to send another write if reply is not recieved in time
         printf("client:: wait for reply...\n");
-        rc = UDP_Read(fd, &addrRcv, message, BUFFER_SIZE);
-        printf("client:: got reply [size:%d contents:(%s)\n", rc, message);
+        rc = UDP_Read(sd, &addrRcv, message, BUFFER_SIZE);
+        printf("client:: got reply [size:%d contents:(%s)]\n", rc, message);
 
         if (rc != -1)
         {
             if (message[0] == '1')
             {
+                printf("client:: reply recieved was a failure\n");
                 return -1;
             }
+            printf("client:: reply recieved was a success\n");
             return 0;
         }
 
-        wait((int *)1000);
+        sleep(1);
     }
 
     return -1;
@@ -231,11 +279,15 @@ The routine should work for either a file or directory; directories should retur
 Success: 0, failure: -1. Failure modes: invalid inum, invalid offset, invalid nbytes.*/
 int MFS_Read(int inum, char *buffer, int offset, int nbytes)
 {
-
     if (inum < 0 || inum >= MFS_BLOCK_SIZE || nbytes < 0 || nbytes > MFS_BLOCK_SIZE)
     {
         return -1;
     }
+    printf("client:: starting MFS_Read\n");
+
+    printf("client:: sd is %d\n", sd);
+
+    printf("client:: constructing message\n");
     char message[BUFFER_SIZE];
     char identifier = '3';
     char inum_string[num_digits(inum) + 1];
@@ -250,35 +302,45 @@ int MFS_Read(int inum, char *buffer, int offset, int nbytes)
     strcat(message, offset_string);
     strcat(message, nbytes_string);
 
+    printf("client:: identifier is %c\n", identifier);
+    printf("client:: inum_string is %s\n", inum_string);
+    printf("client:: offset_string is %s\n", offset_string);
+    printf("client:: nbytes_string is %s\n", nbytes_string);
+    printf("client:: message is %s\n", message);
+
+
     while (1)
     {
-        int rc = UDP_Write(fd, &addrSnd, message, BUFFER_SIZE);
+        int rc = UDP_Write(sd, &addrSnd, message, BUFFER_SIZE);
         if (rc < 0)
         {
-            printf("client:: failed to send\n");
+            printf("client:: failed to send (UDP_Write)\n");
             exit(1);
         }
         // timer needed in order to send another write if reply is not recieved in time
         printf("client:: wait for reply...\n");
-        rc = UDP_Read(fd, &addrRcv, message, BUFFER_SIZE);
-        printf("client:: got reply [size:%d contents:(%s)\n", rc, message);
+        rc = UDP_Read(sd, &addrRcv, message, BUFFER_SIZE);
+        printf("client:: got reply [size:%d contents:(%s)]\n", rc, message);
 
         if (rc != -1)
         {
             if (message[0] == '1')
             {
+                printf("client:: reply recieved was a failure\n");
                 return -1;
             }
+            printf("client:: reading reply...\n");
             int i = 1;
             while (message[i] != '\0')
             {
                 buffer[i - 1] = message[i];
                 i++;
             }
+            printf("client:: buffer is %s\n", buffer);
             return 0;
         }
 
-        wait((int *)1000);
+        sleep(1);
     }
 
     return -1;
@@ -291,11 +353,14 @@ int MFS_Creat(int pinum, int type, char *name)
     printf("client:: starting MFS_Creat\n");
     if (strlen(name) > 28)
     {
-        printf("client:: MFS_Creat failed, name %s not too long\n", name);
+        printf("client:: MFS_Creat failed, name %s too long\n", name);
         return -1;
     }
     printf("client:: name %s not too long\n", name);
 
+    printf("client:: sd is %d\n", sd);
+
+    printf("client:: constructing message\n");
     char message[BUFFER_SIZE];
     char identifier = '4';
     char pinum_string[num_digits(pinum) + 1];
@@ -308,29 +373,35 @@ int MFS_Creat(int pinum, int type, char *name)
     strcat(message, type_string);
     strcat(message, name);
 
+    printf("client:: identifier is %c\n", identifier);
+    printf("client:: pinum_string is %s\n", pinum_string);
+    printf("client:: type_string is %s\n", type_string);
+    printf("client:: message is %s\n", message);
+
     while (1)
     {
-        int rc = UDP_Write(fd, &addrSnd, message, BUFFER_SIZE);
+        int rc = UDP_Write(sd, &addrSnd, message, BUFFER_SIZE);
         if (rc < 0)
         {
-            printf("client:: failed to send\n");
+            printf("client:: failed to send (UDP_Write)\n");
             exit(1);
         }
         // timer needed in order to send another write if reply is not recieved in time
         printf("client:: wait for reply...\n");
-        rc = UDP_Read(fd, &addrRcv, message, BUFFER_SIZE);
-        printf("client:: got reply [size:%d contents:(%s)\n", rc, message);
+        rc = UDP_Read(sd, &addrRcv, message, BUFFER_SIZE);
+        printf("client:: got reply [size:%d contents:(%s)]\n", rc, message);
 
         if (rc != -1)
         {
             if (message[0] == '1')
             {
+                printf("client:: reply recieved was a failure\n");
                 return -1;
             }
             return 0;
         }
 
-        wait((int *)1000);
+        sleep(1);
     }
 
     return -1;
@@ -340,11 +411,11 @@ int MFS_Creat(int pinum, int type, char *name)
 Note that the name not existing is NOT a failure by our definition (think about why this might be).*/
 int MFS_Unlink(int pinum, char *name)
 {
+    printf("client:: starting MFS_Unlink\n");
 
-    if (pinum < 0 || pinum >= MFS_BLOCK_SIZE)
-    {
-        return -1;
-    }
+    printf("client:: sd is %d\n", sd);
+
+    printf("client:: constructing message\n");
     char message[BUFFER_SIZE];
     char identifier = '5';
     char pinum_string[num_digits(pinum) + 1];
@@ -354,29 +425,36 @@ int MFS_Unlink(int pinum, char *name)
     strcat(message, pinum_string);
     strcat(message, name);
 
+    printf("client:: identifier is %c\n", identifier);
+    printf("client:: pinum_string is %s\n", pinum_string);
+    printf("client:: name is %s\n", name);
+    printf("client:: message is %s\n", message);
+
     while (1)
     {
-        int rc = UDP_Write(fd, &addrSnd, message, BUFFER_SIZE);
+        int rc = UDP_Write(sd, &addrSnd, message, BUFFER_SIZE);
         if (rc < 0)
         {
-            printf("client:: failed to send\n");
+            printf("client:: failed to send (UDP_Write)\n");
             exit(1);
         }
         // timer needed in order to send another write if reply is not recieved in time
         printf("client:: wait for reply...\n");
-        rc = UDP_Read(fd, &addrRcv, message, BUFFER_SIZE);
-        printf("client:: got reply [size:%d contents:(%s)\n", rc, message);
+        rc = UDP_Read(sd, &addrRcv, message, BUFFER_SIZE);
+        printf("client:: got reply [size:%d contents:(%s)]\n", rc, message);
 
         if (rc != -1)
         {
             if (message[0] == '1')
             {
+                printf("client:: reply recieved was a failure\n");
                 return -1;
             }
+            printf("client:: reply recieved was a success\n");
             return 0;
         }
 
-        wait((int *)1000);
+        sleep(1);
     }
     return -1;
 }
@@ -384,6 +462,43 @@ int MFS_Unlink(int pinum, char *name)
 // This interface will mostly be used for testing purposes.
 int MFS_Shutdown()
 {
-    close(fd);
-    exit(0);
+    printf("client:: starting MFS_Shutdown\n");
+
+    printf("client:: sd is %d\n", sd);
+
+    printf("client:: constructing message\n");
+    char message[BUFFER_SIZE];
+    char identifier = '6';
+
+    message[0] = identifier;
+
+    printf("client:: identifier is %c\n", identifier);
+    printf("client:: message is %s\n", message);
+    while (1)
+    {
+        int rc = UDP_Write(sd, &addrSnd, message, BUFFER_SIZE);
+        if (rc < 0)
+        {
+            printf("client:: failed to send (UDP_Write)\n");
+            exit(1);
+        }
+        // timer needed in order to send another write if reply is not recieved in time
+        printf("client:: wait for reply...\n");
+        rc = UDP_Read(sd, &addrRcv, message, BUFFER_SIZE);
+        printf("client:: got reply [size:%d contents:(%s)]\n", rc, message);
+
+        if (rc != -1)
+        {
+            if (message[0] == '1')
+            {
+                printf("client:: reply recieved was a failure\n");
+                return -1;
+            }
+                printf("client:: reply recieved was a success, finishing shutdown\n");
+            UDP_Close(sd);
+            return 0;
+        }
+        sleep(1);
+    }
+    return 0;
 }

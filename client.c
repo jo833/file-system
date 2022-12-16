@@ -1,27 +1,29 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include "mfs.h"
 
 #define BUFFER_SIZE (1000)
 
 // client code
-int main(int argc, char *argv[]) {
-    struct sockaddr_in addrSnd, addrRcv;
-
-    int sd = UDP_Open(20000);
-    int rc = UDP_FillSockAddr(&addrSnd, "localhost", 10000);//not right
-
-    char message[BUFFER_SIZE];
-    sprintf(message, "hello world");
-
-    printf("client:: send message [%s]\n", message);
-    rc = MFS_Write(sd, &addrSnd, message, BUFFER_SIZE);
-    if (rc < 0) {
-	printf("client:: failed to send\n");
-	exit(1);
+int main(int argc, char *argv[])
+{
+    printf("client:: attempting to init MFS\n");
+    int rc = MFS_Init("localhost", 8080);
+    if (rc < 0)
+    {
+        printf("client:: failed to send\n");
+        exit(1);
     }
+    printf("client:: succeeded to init MFS\n");
 
-    printf("client:: wait for reply...\n");
-    rc = MFS_Read(sd, &addrRcv, message, BUFFER_SIZE);
-    printf("client:: got reply [size:%d contents:(%s)\n", rc, message);
+    printf("client:: attempting to creat MFS\n");
+    rc = MFS_Creat(0, MFS_DIRECTORY, "folder1");
+    rc = MFS_Lookup(0, "folder1");
+    if (rc < 0)
+    {
+        printf("client:: failed to send\n");
+        exit(1);
+    }
+    printf("client:: succeeded to create MFS: %d\n", rc);
     return 0;
 }
