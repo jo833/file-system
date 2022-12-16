@@ -17,7 +17,7 @@ int main(int argc, char *argv[])
     printf("client:: succeeded to init MFS\n");
 
     printf("client:: attempting to creat MFS\n");
-    // rc = MFS_Creat(0, MFS_DIRECTORY, "folder1");
+    rc = MFS_Creat(0, MFS_DIRECTORY, "folder1");
     rc = MFS_Lookup(0, "folder1");
     if (rc < 0)
     {
