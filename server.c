@@ -10,7 +10,7 @@
 #include <unistd.h>
 #include "udp.h"
 
-#define BUFFER_SIZE (1000)
+#define BUFFER_SIZE (10000)
 int sd;
 char *pointer;
 
@@ -96,7 +96,7 @@ void mfs_lookup(char *message, super_t *super, struct sockaddr_in addr)
         UDP_Write(sd, &addr, reply, BUFFER_SIZE);
         return;
     }
-    printf("server:: pinum is valid, finding pinum in inode table\n");
+    printf("server:: pinum is valid, finding inum in inode table\n");
 
     inode_t *pinode = (inode_t *)(pointer + (super->inode_region_addr * (UFS_BLOCK_SIZE)) + (pinum * (sizeof(inode_t))));
 
@@ -113,19 +113,36 @@ void mfs_lookup(char *message, super_t *super, struct sockaddr_in addr)
     printf("server:: pinode is a directory\n");
 
     printf("server:: looping through direct pointers to find name\n");
-    for (i = 0; i < DIRECT_PTRS; i++)
+    for (i = 0; i <= pinode->size / UFS_BLOCK_SIZE; i++)
     {
         for (int j = 0; j < UFS_BLOCK_SIZE / sizeof(dir_ent_t); j++)
         {
             MFS_DirEnt_t *dir_entry = (MFS_DirEnt_t *)((pointer + (super->data_region_addr * (UFS_BLOCK_SIZE)) + pinode->direct[i] * UFS_BLOCK_SIZE) + sizeof(dir_ent_t) * j);
-            if (dir_entry->inum != -1 && strcmp(dir_entry->name, name) == 0)
+            printf("server:: dir_entry->name is %s\n", dir_entry->name);
+            printf("server:: dir_entry->inum is %d\n", dir_entry->inum);
+            if (dir_entry->inum >= 0 && strcmp(dir_entry->name, name) == 0)
             {
-                printf("server:: found directory name, storing inum\n");
+                printf("server:: found directory name, storing inum (%d)\n", dir_entry->inum);
                 inum = dir_entry->inum;
-                break;
+
+                printf("server:: replying with success, and send inum (%d) to client\n", inum);
+                char inum_string[num_digits(inum) + 1];
+                sprintf(inum_string, "%d", inum);
+
+                reply[0] = failure;
+                int i = 1;
+                int count = 0;
+                do
+                {
+                    reply[i] = inum_string[count];
+                    i++;
+                    count++;
+                } while (inum_string[count - 1] != '\0');
+                UDP_Write(sd, &addr, reply, BUFFER_SIZE);
+                return;
             }
         }
-        if (i == DIRECT_PTRS - 1)
+        if (i == pinode->size / UFS_BLOCK_SIZE)
         {
             printf("server:: unable to find directory name, replying with failure\n");
             char failure = '1';
@@ -134,18 +151,6 @@ void mfs_lookup(char *message, super_t *super, struct sockaddr_in addr)
             UDP_Write(sd, &addr, reply, BUFFER_SIZE);
             return;
         }
-    }
-
-    if (failure == '0')
-    {
-        printf("server:: replying with success, and send inum to client\n");
-        char inum_string[num_digits(inum) + 1];
-        sprintf(inum_string, "%d", inum);
-        reply[0] = failure;
-        strcat(reply, inum_string);
-        UDP_Write(sd, &addr, reply, BUFFER_SIZE);
-        printf("server:: reply\n");
-        return;
     }
 }
 
@@ -188,7 +193,7 @@ void mfs_stat(char *message, super_t *super, struct sockaddr_in addr)
         UDP_Write(sd, &addr, reply, BUFFER_SIZE);
         return;
     }
-    printf("server:: inum is valid, finding pinum in inode table\n");
+    printf("server:: inum is valid, finding inum in inode table\n");
 
     inode_t *inode = (inode_t *)(pointer + (super->inode_region_addr * (UFS_BLOCK_SIZE)) + (inum * (sizeof(inode_t))));
 
@@ -200,10 +205,23 @@ void mfs_stat(char *message, super_t *super, struct sockaddr_in addr)
         sprintf(inode_type_string, "%d", inode->type);
         sprintf(inode_size_string, "%d", inode->size);
         reply[0] = failure;
-        strcat(reply, inode_type_string);
-        strcat(reply, inode_size_string);
+
+        int i = 1;
+        int count = 0;
+        do
+        {
+            reply[i] = inode_type_string[count];
+            i++;
+            count++;
+        } while (inode_type_string[count - 1] != '\0');
+        count = 0;
+        do
+        {
+            reply[i] = inode_size_string[count];
+            i++;
+            count++;
+        } while (inode_size_string[count - 1] != '\0');
         UDP_Write(sd, &addr, reply, BUFFER_SIZE);
-        printf("server:: reply\n");
     }
 }
 
@@ -223,15 +241,6 @@ void mfs_write(char *message, super_t *super, struct sockaddr_in addr, int fd)
     char inum_string[count];
     inum_string[count - 1] = '\0';
     i = count + 1;
-    count = 1;
-    while (message[i] != '\0')
-    {
-        count++;
-        i++;
-    }
-    char buffer[count];
-    buffer[count - 1] = '\0';
-    i++;
     count = 1;
     while (message[i] != '\0')
     {
@@ -262,14 +271,6 @@ void mfs_write(char *message, super_t *super, struct sockaddr_in addr, int fd)
     count = 0;
     while (message[i] != '\0')
     {
-        buffer[count] = message[i];
-        i++;
-        count++;
-    }
-    i++;
-    count = 0;
-    while (message[i] != '\0')
-    {
         offset_string[count] = message[i];
         i++;
         count++;
@@ -284,6 +285,16 @@ void mfs_write(char *message, super_t *super, struct sockaddr_in addr, int fd)
         count++;
     }
     nbytes = atoi(nbytes_string);
+    char *buffer = malloc(nbytes);
+    i++;
+    count = 0;
+    while (count < nbytes)
+    {
+        buffer[count] = message[i];
+        i++;
+        count++;
+    }
+
     printf("server:: finished reading message\n");
 
     printf("server:: inum is %d\n", inum);
@@ -301,7 +312,7 @@ void mfs_write(char *message, super_t *super, struct sockaddr_in addr, int fd)
         UDP_Write(sd, &addr, reply, BUFFER_SIZE);
         return;
     }
-    printf("server:: inum is valid, finding pinum in inode table\n");
+    printf("server:: inum is valid, finding inum in inode table\n");
 
     inode_t *inode = (inode_t *)(pointer + (super->inode_region_addr * (UFS_BLOCK_SIZE)) + (inum * (sizeof(inode_t))));
 
@@ -319,20 +330,42 @@ void mfs_write(char *message, super_t *super, struct sockaddr_in addr, int fd)
 
     if (inode->size != 0)
     {
+        char *file_pointer;
         printf("server:: inode is not empty, calculating where in file to write\n");
         int direct_pointer_index = offset / UFS_BLOCK_SIZE;
         int block_pointer_offset = offset % UFS_BLOCK_SIZE;
-        char *file_pointer = (pointer + (super->data_region_addr * (UFS_BLOCK_SIZE))) + (inode->direct[direct_pointer_index] * (UFS_BLOCK_SIZE)) + block_pointer_offset;
+        if (direct_pointer_index > (DIRECT_PTRS - 1)){
+            printf("server:: trying to write to 31st direct pointer, replying with failure\n");
+            char failure = '1';
+
+            reply[0] = failure;
+            UDP_Write(sd, &addr, reply, BUFFER_SIZE);
+            return;
+        }
+        if (inode->direct[direct_pointer_index] == 0)
+        {
+            printf("server:: write requires new allocated direct pointer\n");
+            char *data_bitmap_pointer = (pointer + (super->data_bitmap_addr * (UFS_BLOCK_SIZE)));
+            i = 0;
+            while (get_bit((unsigned int *)data_bitmap_pointer, i) == 1)
+            {
+                i++;
+            }
+            printf("server:: found unallocated data block, setting direct pointer to new data block and setting bit to allocated\n");
+            set_bit((unsigned int *)data_bitmap_pointer, i);
+            file_pointer = (pointer + (super->data_region_addr * (UFS_BLOCK_SIZE))) + (i * (UFS_BLOCK_SIZE)) + offset;
+            inode->direct[direct_pointer_index] = i;
+        }
+        file_pointer = (pointer + (super->data_region_addr * (UFS_BLOCK_SIZE))) + (inode->direct[direct_pointer_index] * (UFS_BLOCK_SIZE)) + block_pointer_offset;
         i = 0;
         printf("server:: writing to file one character at a time\n");
         while (i < nbytes)
         {
             *file_pointer = buffer[i];
-            i++;
             if (block_pointer_offset + i == UFS_BLOCK_SIZE)
             {
                 printf("server:: reached end of data block before finished writing\n");
-                if (inode->size > direct_pointer_index * UFS_BLOCK_SIZE)
+                if (inode->size > (direct_pointer_index + 1) * UFS_BLOCK_SIZE)
                 {
                     printf("server:: next direct pointer is allocated, so moving pointer to new data block and continue write\n");
                     file_pointer = (pointer + (super->data_region_addr * (UFS_BLOCK_SIZE))) + (inode->direct[direct_pointer_index + 1] * (UFS_BLOCK_SIZE));
@@ -366,6 +399,11 @@ void mfs_write(char *message, super_t *super, struct sockaddr_in addr, int fd)
             {
                 file_pointer++;
             }
+            i++;
+        }
+        if (inode->size < offset + nbytes)
+        {
+            inode->size = offset + nbytes;
         }
     }
     else
@@ -398,6 +436,7 @@ void mfs_write(char *message, super_t *super, struct sockaddr_in addr, int fd)
             i++;
             file_pointer++;
         }
+        inode->size = offset + nbytes;
     }
 
     if (failure == '0')
@@ -416,7 +455,7 @@ void mfs_write(char *message, super_t *super, struct sockaddr_in addr, int fd)
 void mfs_read(char *message, super_t *super, struct sockaddr_in addr)
 {
     printf("server:: starting mfs_read\n");
-    char reply[BUFFER_SIZE];
+    char *reply = malloc(BUFFER_SIZE);
     int i, inum, offset, nbytes, count;
     char failure = '0';
 
@@ -489,7 +528,7 @@ void mfs_read(char *message, super_t *super, struct sockaddr_in addr)
         UDP_Write(sd, &addr, reply, BUFFER_SIZE);
         return;
     }
-    printf("server:: inum is valid, finding pinum in inode table\n");
+    printf("server:: inum is valid, finding inum in inode table\n");
 
     inode_t *inode = (inode_t *)(pointer + (super->inode_region_addr * (UFS_BLOCK_SIZE)) + (inum * (sizeof(inode_t))));
 
@@ -524,11 +563,10 @@ void mfs_read(char *message, super_t *super, struct sockaddr_in addr)
     while (i < nbytes)
     {
         reply[i + 1] = *file_pointer;
-        i++;
-        printf("server:: reached end of data block before finished reading\n");
         if (block_pointer_offset + i == UFS_BLOCK_SIZE)
         {
-            if (inode->size > direct_pointer_index * UFS_BLOCK_SIZE)
+            printf("server:: reached end of data block before finished reading\n");
+            if (inode->size > (direct_pointer_index + 1) * UFS_BLOCK_SIZE)
             {
                 printf("server:: next direct pointer is allocated, update file pointer adn continue reading\n");
                 file_pointer = (pointer + (super->data_region_addr * (UFS_BLOCK_SIZE))) + (inode->direct[direct_pointer_index + 1] * (UFS_BLOCK_SIZE));
@@ -548,6 +586,7 @@ void mfs_read(char *message, super_t *super, struct sockaddr_in addr)
         {
             file_pointer++;
         }
+        i++;
     }
 
     if (failure == '0')
@@ -638,7 +677,7 @@ void mfs_create(char *message, super_t *super, struct sockaddr_in addr, int fd)
         UDP_Write(sd, &addr, reply, BUFFER_SIZE);
         return;
     }
-    printf("server:: pinum is valid, finding pinum in inode table\n");
+    printf("server:: pinum is valid, finding inum in inode table\n");
 
     inode_t *pinode = (inode_t *)(pointer + (super->inode_region_addr * (UFS_BLOCK_SIZE)) + (pinum * (sizeof(inode_t))));
 
@@ -655,12 +694,12 @@ void mfs_create(char *message, super_t *super, struct sockaddr_in addr, int fd)
     printf("server:: pinode is a directory\n");
 
     printf("server:: looping through direct pointers to see if name already exists\n");
-    for (i = 0; i < DIRECT_PTRS; i++)
+    for (i = 0; i <= pinode->size / UFS_BLOCK_SIZE; i++)
     {
         for (int j = 0; j < UFS_BLOCK_SIZE / sizeof(dir_ent_t); j++)
         {
             MFS_DirEnt_t *dir_entry = (MFS_DirEnt_t *)((pointer + (super->data_region_addr * (UFS_BLOCK_SIZE)) + pinode->direct[i] * UFS_BLOCK_SIZE) + sizeof(dir_ent_t) * j);
-            if (dir_entry->inum != -1 && strcmp(dir_entry->name, name) == 0)
+            if (dir_entry->inum >= 0 && strcmp(dir_entry->name, name) == 0)
             {
                 printf("server:: found that name already exists, replying with failure\n");
                 reply[0] = failure;
@@ -669,31 +708,44 @@ void mfs_create(char *message, super_t *super, struct sockaddr_in addr, int fd)
             }
         }
     }
-
+    int k = 0;
     printf("server:: found that name does not yet exist, looping through direct pointers to find unallocated directory entry\n");
-    for (i = 0; i < DIRECT_PTRS; i++)
+    for (i = 0; i <= pinode->size / UFS_BLOCK_SIZE; i++)
     {
         for (int j = 0; j < UFS_BLOCK_SIZE / sizeof(dir_ent_t); j++)
         {
             MFS_DirEnt_t *dir_entry = (MFS_DirEnt_t *)((pointer + (super->data_region_addr * (UFS_BLOCK_SIZE)) + pinode->direct[i] * UFS_BLOCK_SIZE) + sizeof(dir_ent_t) * j);
-            if (dir_entry->inum == -1)
+            if (((pinum == 0 && dir_entry->inum <= 0) || dir_entry->inum < 0) && k == 0)
             {
                 printf("server:: found unallocated directory entry, now finding free inode in inode bitmap\n");
                 char *inode_bitmap_pointer = (pointer + (super->inode_bitmap_addr * (UFS_BLOCK_SIZE)));
-                i = 0;
-                while (get_bit((unsigned int *)inode_bitmap_pointer, i) == 1)
+                k = 1;
+                while (get_bit((unsigned int *)inode_bitmap_pointer, k) == 1)
                 {
-                    i++;
+                    k++;
                 }
                 printf("server:: found unallocated inode, now setting directory entry inum and name, as well as setting the bit to allocated\n");
-                set_bit((unsigned int *)inode_bitmap_pointer, i);
-                dir_entry->inum = i;
+                set_bit((unsigned int *)inode_bitmap_pointer, k);
+                dir_entry->inum = k;
                 strcpy(dir_entry->name, name);
+                printf("server:: dir_entry->name is %s\n", dir_entry->name);
+                printf("server:: dir_entry->inum is %d\n", dir_entry->inum);
+                break;
             }
+        }
+
+        if (i == pinode->size / UFS_BLOCK_SIZE && k == 0)
+        {
+            printf("server:: unable to find unallocated directory entry, replying with failure\n");
+            char failure = '1';
+
+            reply[0] = failure;
+            UDP_Write(sd, &addr, reply, BUFFER_SIZE);
+            return;
         }
     }
 
-    inode_t *inode = (inode_t *)(pointer + (super->inode_region_addr * (UFS_BLOCK_SIZE)) + (i * (sizeof(inode_t))));
+    inode_t *inode = (inode_t *)(pointer + (super->inode_region_addr * (UFS_BLOCK_SIZE)) + (k * (sizeof(inode_t))));
     printf("server:: setting inode type to %d\n", type);
     inode->type = type;
 
@@ -716,8 +768,8 @@ void mfs_create(char *message, super_t *super, struct sockaddr_in addr, int fd)
         printf("server:: found unallocated data block, now setting directory entries for . and .., as well as setting the bit in the data bitmap\n");
         set_bit((unsigned int *)data_bitmap_pointer, i);
         inode->direct[0] = i;
-        MFS_DirEnt_t *current_directory_entry = (MFS_DirEnt_t *)((pointer + (super->data_region_addr * (UFS_BLOCK_SIZE)) + pinode->direct[0] * UFS_BLOCK_SIZE));
-        MFS_DirEnt_t *parent_directory_entry = (MFS_DirEnt_t *)((pointer + (super->data_region_addr * (UFS_BLOCK_SIZE)) + pinode->direct[0] * UFS_BLOCK_SIZE) + sizeof(dir_ent_t));
+        MFS_DirEnt_t *current_directory_entry = (MFS_DirEnt_t *)((pointer + (super->data_region_addr * (UFS_BLOCK_SIZE)) + inode->direct[0] * UFS_BLOCK_SIZE));
+        MFS_DirEnt_t *parent_directory_entry = (MFS_DirEnt_t *)((pointer + (super->data_region_addr * (UFS_BLOCK_SIZE)) + inode->direct[0] * UFS_BLOCK_SIZE) + sizeof(dir_ent_t));
 
         strcpy(current_directory_entry->name, ".");
         strcpy(parent_directory_entry->name, "..");
@@ -762,17 +814,21 @@ void mfs_unlink(char *message, super_t *super, struct sockaddr_in addr, int fd)
     char name[count];
     name[count - 1] = '\0';
     i = 1;
+    count = 0;
     while (message[i] != '\0')
     {
-        strcat(pinum_string, &message[i]);
+        pinum_string[count] = message[i];
         i++;
+        count++;
     }
     pinum = atoi(pinum_string);
     i++;
+    count = 0;
     while (message[i] != '\0')
     {
-        strcat(name, &message[i]);
+        name[count] = message[i];
         i++;
+        count++;
     }
 
     printf("server:: finished reading message\n");
@@ -790,7 +846,7 @@ void mfs_unlink(char *message, super_t *super, struct sockaddr_in addr, int fd)
         UDP_Write(sd, &addr, reply, BUFFER_SIZE);
         return;
     }
-    printf("server:: pinum is valid, finding pinum in inode table\n");
+    printf("server:: pinum is valid, finding inum in inode table\n");
 
     inode_t *pinode = (inode_t *)(pointer + (super->inode_region_addr * (UFS_BLOCK_SIZE)) + (pinum * (sizeof(inode_t))));
 
@@ -807,12 +863,14 @@ void mfs_unlink(char *message, super_t *super, struct sockaddr_in addr, int fd)
     printf("server:: pinode is a directory\n");
 
     printf("server:: looping through direct pointers to find name to unlink\n");
-    for (i = 0; i < DIRECT_PTRS; i++)
+    for (i = 0; i <= pinode->size / UFS_BLOCK_SIZE; i++)
     {
         for (int j = 0; j < UFS_BLOCK_SIZE / sizeof(dir_ent_t); j++)
         {
             MFS_DirEnt_t *dir_entry = (MFS_DirEnt_t *)((pointer + (super->data_region_addr * (UFS_BLOCK_SIZE)) + pinode->direct[i] * UFS_BLOCK_SIZE) + sizeof(dir_ent_t) * j);
-            if (dir_entry->inum != -1 && strcmp(dir_entry->name, name) == 0)
+            printf("server:: dir_entry->name is %s\n", dir_entry->name);
+            printf("server:: dir_entry->inum is %d\n", dir_entry->inum);
+            if (dir_entry->inum >= 0 && strcmp(dir_entry->name, name) == 0)
             {
                 printf("server:: found name to unlink\n");
                 inode_t *inode = (inode_t *)(pointer + (super->inode_region_addr * (UFS_BLOCK_SIZE)) + (dir_entry->inum * (sizeof(inode_t))));
@@ -829,29 +887,27 @@ void mfs_unlink(char *message, super_t *super, struct sockaddr_in addr, int fd)
                 char *inode_bitmap_pointer = (pointer + (super->inode_bitmap_addr * (UFS_BLOCK_SIZE)));
                 set_bit((unsigned int *)inode_bitmap_pointer, dir_entry->inum);
                 dir_entry->inum = -1;
-            }
-            if (i == DIRECT_PTRS - 1)
-            {
-                printf("server:: name not found, replying with failure\n");
-                char failure = '1';
+
+                printf("server:: replying with success and calling fsync\n");
+                fsync(fd);
 
                 reply[0] = failure;
                 UDP_Write(sd, &addr, reply, BUFFER_SIZE);
+                printf("server:: reply\n");
                 return;
             }
         }
+        if (i == pinode->size / UFS_BLOCK_SIZE)
+        {
+            printf("server:: name not found, replying with failure\n");
+            char failure = '1';
+
+            reply[0] = failure;
+            UDP_Write(sd, &addr, reply, BUFFER_SIZE);
+            return;
+        }
     }
 
-    if (failure == '0')
-    {
-        printf("server:: replying with success and calling fsync\n");
-        fsync(fd);
-
-        reply[0] = failure;
-        UDP_Write(sd, &addr, reply, BUFFER_SIZE);
-        printf("server:: reply\n");
-        return;
-    }
     return;
 }
 
