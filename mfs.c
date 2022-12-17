@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <time.h>
 
-#define BUFFER_SIZE (1000)
+#define BUFFER_SIZE (10000)
 
 int MIN_PORT = 20000;
 int MAX_PORT = 40000;
@@ -28,7 +28,7 @@ int num_digits(int num)
 int MFS_Init(char *hostname, int port)
 {
     printf("client:: beginning MFS_Init\n");
-    sd = UDP_Open(51328);
+    sd = UDP_Open(62482);
 
     printf("client:: init sd to %d\n", sd);
     int rc = UDP_FillSockAddr(&addrSnd, hostname, port);
@@ -64,11 +64,25 @@ int MFS_Lookup(int pinum, char *name)
     sprintf(pinum_string, "%d", pinum);
 
     message[0] = identifier;
-    strcat(message, pinum_string);
-    strcat(message, name);
+    int i = 1;
+    int count = 0;
+    do
+    {
+        message[i] = pinum_string[count];
+        i++;
+        count++;
+    } while (pinum_string[count - 1] != '\0');
+    count = 0;
+    do
+    {
+        message[i] = name[count];
+        i++;
+        count++;
+    } while (name[count - 1] != '\0');
 
     printf("client:: identifier is %c\n", identifier);
     printf("client:: pinum_string is %s\n", pinum_string);
+    printf("client:: pinum_string is %s\n", name);
     printf("client:: message is %s\n", message);
 
     while (1)
@@ -84,7 +98,7 @@ int MFS_Lookup(int pinum, char *name)
         printf("client:: wait for reply...\n");
         rc = UDP_Read(sd, &addrRcv, message, BUFFER_SIZE);
         printf("client:: got reply [size:%d message:(%s)]\n", rc, message);
-            
+
         if (rc != -1)
         {
             if (message[0] == '1')
@@ -96,7 +110,7 @@ int MFS_Lookup(int pinum, char *name)
             int i = 1;
             int count = 1;
             while (message[count] != '\0')
-            { 
+            {
                 count++;
             }
             char inum_string[count];
@@ -137,7 +151,14 @@ int MFS_Stat(int inum, MFS_Stat_t *m)
     sprintf(inum_string, "%d", inum);
 
     message[0] = identifier;
-    strcat(message, inum_string);
+    int i = 1;
+    int count = 0;
+    do
+    {
+        message[i] = inum_string[count];
+        i++;
+        count++;
+    } while (inum_string[count - 1] != '\0');
 
     printf("client:: identifier is %c\n", identifier);
     printf("client:: inum_string is %s\n", inum_string);
@@ -197,7 +218,7 @@ int MFS_Stat(int inum, MFS_Stat_t *m)
                 count++;
             }
             printf("client:: type_string is %s\n", type_string);
-            printf("client:: size_string is %s\n", type_string);
+            printf("client:: size_string is %s\n", size_string);
 
             m->type = atoi(type_string);
             m->size = atoi(size_string);
@@ -213,8 +234,8 @@ int MFS_Stat(int inum, MFS_Stat_t *m)
 Returns 0 on success, -1 on failure.
 Failure modes: invalid inum, invalid nbytes, invalid offset, not a regular file (because you can't write to directories).*/
 int MFS_Write(int inum, char *buffer, int offset, int nbytes)
-{
-    if (inum < 0 || inum >= MFS_BLOCK_SIZE || nbytes < 0 || nbytes >= MFS_BLOCK_SIZE)
+{ 
+    if (inum < 0 || inum >= MFS_BLOCK_SIZE || nbytes < 0 || nbytes >MFS_BLOCK_SIZE)
     {
         return -1;
     }
@@ -223,7 +244,7 @@ int MFS_Write(int inum, char *buffer, int offset, int nbytes)
     printf("client:: sd is %d\n", sd);
 
     printf("client:: constructing message\n");
-    char message[BUFFER_SIZE];
+    char *message = malloc(BUFFER_SIZE);
     char identifier = '2';
     char inum_string[num_digits(inum) + 1];
     sprintf(inum_string, "%d", inum);
@@ -233,16 +254,46 @@ int MFS_Write(int inum, char *buffer, int offset, int nbytes)
     sprintf(nbytes_string, "%d", nbytes);
 
     message[0] = identifier;
-    strcat(message, inum_string);
-    strcat(message, buffer);
-    strcat(message, offset_string);
-    strcat(message, nbytes_string);
+    int i = 1;
+    int count = 0;
+    do
+    {
+        message[i] = inum_string[count];
+        i++;
+        count++;
+    } while (inum_string[count - 1] != '\0');
+    count = 0;
+    do
+    {
+        message[i] = offset_string[count];
+        i++;
+        count++;
+    } while (offset_string[count - 1] != '\0');
+    count = 0;
+    do
+    {
+        message[i] = nbytes_string[count];
+        i++;
+        count++;
+    } while (nbytes_string[count - 1] != '\0');
+    count = 0;
+    do
+    {
+        message[i] = buffer[count];
+        i++;
+        count++;
+        // if (count > 4075){
+        //     printf("client:: %c\n", message[i]);
+        //     printf("server:: %c\n", buffer[count]);
+        //     printf("client:: %d\n", i);
+        // }
+    } while (count < nbytes);
 
     printf("client:: identifier is %c\n", identifier);
     printf("client:: inum_string is %s\n", inum_string);
-    printf("client:: buffer is %s\n", buffer);
     printf("client:: offset_string is %s\n", offset_string);
     printf("client:: nbytes_string is %s\n", nbytes_string);
+    printf("client:: buffer is %s\n", buffer);
     printf("client:: message is %s\n", message);
 
     while (1)
@@ -298,16 +349,34 @@ int MFS_Read(int inum, char *buffer, int offset, int nbytes)
     sprintf(nbytes_string, "%d", nbytes);
 
     message[0] = identifier;
-    strcat(message, inum_string);
-    strcat(message, offset_string);
-    strcat(message, nbytes_string);
+    int i = 1;
+    int count = 0;
+    do
+    {
+        message[i] = inum_string[count];
+        i++;
+        count++;
+    } while (inum_string[count - 1] != '\0');
+    count = 0;
+    do
+    {
+        message[i] = offset_string[count];
+        i++;
+        count++;
+    } while (offset_string[count - 1] != '\0');
+    count = 0;
+    do
+    {
+        message[i] = nbytes_string[count];
+        i++;
+        count++;
+    } while (nbytes_string[count - 1] != '\0');
 
     printf("client:: identifier is %c\n", identifier);
     printf("client:: inum_string is %s\n", inum_string);
     printf("client:: offset_string is %s\n", offset_string);
     printf("client:: nbytes_string is %s\n", nbytes_string);
     printf("client:: message is %s\n", message);
-
 
     while (1)
     {
@@ -331,10 +400,12 @@ int MFS_Read(int inum, char *buffer, int offset, int nbytes)
             }
             printf("client:: reading reply...\n");
             int i = 1;
-            while (message[i] != '\0')
+            int count = 0;
+            while (count < nbytes)
             {
-                buffer[i - 1] = message[i];
+                buffer[count] = message[i];
                 i++;
+                count++;
             }
             printf("client:: buffer is %s\n", buffer);
             return 0;
@@ -349,7 +420,10 @@ int MFS_Read(int inum, char *buffer, int offset, int nbytes)
 // Returns 0 on success, -1 on failure. Failure modes: pinum does not exist, or name is too long.
 // If name already exists, return success.
 int MFS_Creat(int pinum, int type, char *name)
-{
+{if (pinum < 0 || pinum >= MFS_BLOCK_SIZE )
+    {
+        return -1;
+    }
     printf("client:: starting MFS_Creat\n");
     if (strlen(name) > 28)
     {
@@ -369,14 +443,33 @@ int MFS_Creat(int pinum, int type, char *name)
     sprintf(type_string, "%d", type);
 
     message[0] = identifier;
-    strcat(message, pinum_string);
-    strcat(message, type_string);
-    strcat(message, name);
+    int i = 1;
+    int count = 0;
+    do
+    {
+        message[i] = pinum_string[count];
+        i++;
+        count++;
+    } while (pinum_string[count - 1] != '\0');
+    count = 0;
+    do
+    {
+        message[i] = type_string[count];
+        i++;
+        count++;
+    } while (type_string[count - 1] != '\0');
+    count = 0;
+    do
+    {
+        message[i] = name[count];
+        i++;
+        count++;
+    } while (name[count - 1] != '\0');
 
     printf("client:: identifier is %c\n", identifier);
     printf("client:: pinum_string is %s\n", pinum_string);
     printf("client:: type_string is %s\n", type_string);
-    printf("client:: message is %s\n", message);
+    printf("client:: message is %c\n", message[5]);
 
     while (1)
     {
@@ -416,14 +509,31 @@ int MFS_Unlink(int pinum, char *name)
     printf("client:: sd is %d\n", sd);
 
     printf("client:: constructing message\n");
+    if (pinum < 0 || pinum >= MFS_BLOCK_SIZE)
+    {
+        return -1;
+    }
     char message[BUFFER_SIZE];
     char identifier = '5';
     char pinum_string[num_digits(pinum) + 1];
     sprintf(pinum_string, "%d", pinum);
 
     message[0] = identifier;
-    strcat(message, pinum_string);
-    strcat(message, name);
+    int i = 1;
+    int count = 0;
+    do
+    {
+        message[i] = pinum_string[count];
+        i++;
+        count++;
+    } while (pinum_string[count - 1] != '\0');
+    count = 0;
+    do
+    {
+        message[i] = name[count];
+        i++;
+        count++;
+    } while (name[count - 1] != '\0');
 
     printf("client:: identifier is %c\n", identifier);
     printf("client:: pinum_string is %s\n", pinum_string);
@@ -494,7 +604,7 @@ int MFS_Shutdown()
                 printf("client:: reply recieved was a failure\n");
                 return -1;
             }
-                printf("client:: reply recieved was a success, finishing shutdown\n");
+            printf("client:: reply recieved was a success, finishing shutdown\n");
             UDP_Close(sd);
             return 0;
         }
