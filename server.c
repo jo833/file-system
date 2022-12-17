@@ -39,6 +39,16 @@ void set_bit(unsigned int *bitmap, int position)
     bitmap[index] |= 0x1 << offset;
 }
 
+// void mfs_init(super_t *super, struct sockaddr_in addr)
+// {
+
+//     printf("server:: replying with success\n");
+
+//     reply[0] = '0';
+//     UDP_Write(sd, &addr, reply, BUFFER_SIZE);
+//     return;
+// }
+
 void mfs_lookup(char *message, super_t *super, struct sockaddr_in addr)
 {
     printf("server:: starting mfs_lookup\n");
@@ -334,7 +344,8 @@ void mfs_write(char *message, super_t *super, struct sockaddr_in addr, int fd)
         printf("server:: inode is not empty, calculating where in file to write\n");
         int direct_pointer_index = offset / UFS_BLOCK_SIZE;
         int block_pointer_offset = offset % UFS_BLOCK_SIZE;
-        if (direct_pointer_index > (DIRECT_PTRS - 1)){
+        if (direct_pointer_index > (DIRECT_PTRS - 1))
+        {
             printf("server:: trying to write to 31st direct pointer, replying with failure\n");
             char failure = '1';
 
@@ -715,7 +726,9 @@ void mfs_create(char *message, super_t *super, struct sockaddr_in addr, int fd)
         for (int j = 0; j < UFS_BLOCK_SIZE / sizeof(dir_ent_t); j++)
         {
             MFS_DirEnt_t *dir_entry = (MFS_DirEnt_t *)((pointer + (super->data_region_addr * (UFS_BLOCK_SIZE)) + pinode->direct[i] * UFS_BLOCK_SIZE) + sizeof(dir_ent_t) * j);
-            if (((pinum == 0 && dir_entry->inum <= 0) || dir_entry->inum < 0) && k == 0)
+            printf("server:: dir_entry->name is %s\n", dir_entry->name);
+            printf("server:: dir_entry->inum is %d\n", dir_entry->inum);
+            if ((dir_entry->inum < 0) && k == 0)
             {
                 printf("server:: found unallocated directory entry, now finding free inode in inode bitmap\n");
                 char *inode_bitmap_pointer = (pointer + (super->inode_bitmap_addr * (UFS_BLOCK_SIZE)));
@@ -728,8 +741,6 @@ void mfs_create(char *message, super_t *super, struct sockaddr_in addr, int fd)
                 set_bit((unsigned int *)inode_bitmap_pointer, k);
                 dir_entry->inum = k;
                 strcpy(dir_entry->name, name);
-                printf("server:: dir_entry->name is %s\n", dir_entry->name);
-                printf("server:: dir_entry->inum is %d\n", dir_entry->inum);
                 break;
             }
         }
@@ -768,17 +779,29 @@ void mfs_create(char *message, super_t *super, struct sockaddr_in addr, int fd)
         printf("server:: found unallocated data block, now setting directory entries for . and .., as well as setting the bit in the data bitmap\n");
         set_bit((unsigned int *)data_bitmap_pointer, i);
         inode->direct[0] = i;
-        MFS_DirEnt_t *current_directory_entry = (MFS_DirEnt_t *)((pointer + (super->data_region_addr * (UFS_BLOCK_SIZE)) + inode->direct[0] * UFS_BLOCK_SIZE));
-        MFS_DirEnt_t *parent_directory_entry = (MFS_DirEnt_t *)((pointer + (super->data_region_addr * (UFS_BLOCK_SIZE)) + inode->direct[0] * UFS_BLOCK_SIZE) + sizeof(dir_ent_t));
-
-        strcpy(current_directory_entry->name, ".");
-        strcpy(parent_directory_entry->name, "..");
-
-        current_directory_entry->inum = i;
-        parent_directory_entry->inum = pinum;
+        for (int j = 0; j < UFS_BLOCK_SIZE / sizeof(dir_ent_t); j++)
+        {
+            MFS_DirEnt_t *dir_entry = (MFS_DirEnt_t *)((pointer + (super->data_region_addr * (UFS_BLOCK_SIZE)) + inode->direct[0] * UFS_BLOCK_SIZE) + sizeof(dir_ent_t) * j);
+            if (j == 0)
+            {
+                strcpy(dir_entry->name, ".");
+                dir_entry->inum = i;
+            }
+            else if (j == 1)
+            {
+                strcpy(dir_entry->name, "..");
+                dir_entry->inum = pinum;
+            }
+            else
+            {
+                dir_entry->inum = -1;
+            }
+        }
     }
     if (failure == '0')
     {
+        pinode->size += 1;
+
         printf("server:: replying with success and calling fsync\n");
         fsync(fd);
         reply[0] = failure;
@@ -887,6 +910,7 @@ void mfs_unlink(char *message, super_t *super, struct sockaddr_in addr, int fd)
                 char *inode_bitmap_pointer = (pointer + (super->inode_bitmap_addr * (UFS_BLOCK_SIZE)));
                 set_bit((unsigned int *)inode_bitmap_pointer, dir_entry->inum);
                 dir_entry->inum = -1;
+                pinode->size -= 1;
 
                 printf("server:: replying with success and calling fsync\n");
                 fsync(fd);
@@ -951,6 +975,32 @@ int main(int argc, char *argv[])
 
     sd = UDP_Open(port);
     assert(sd > -1);
+
+    inode_t *rootnode = (inode_t *)(pointer + (super->inode_region_addr * (UFS_BLOCK_SIZE)));
+
+    MFS_DirEnt_t *current_dir_entry = (MFS_DirEnt_t *)((pointer + (super->data_region_addr * (UFS_BLOCK_SIZE)) + rootnode->direct[0] * UFS_BLOCK_SIZE));
+    if (strcmp(current_dir_entry->name, ".") != 0)
+    {
+
+        for (int j = 0; j < UFS_BLOCK_SIZE / sizeof(dir_ent_t); j++)
+        {
+            MFS_DirEnt_t *dir_entry = (MFS_DirEnt_t *)((pointer + (super->data_region_addr * (UFS_BLOCK_SIZE)) + rootnode->direct[0] * UFS_BLOCK_SIZE) + sizeof(dir_ent_t) * j);
+            if (j == 0)
+            {
+                strcpy(dir_entry->name, ".");
+                dir_entry->inum = 0;
+            }
+            else if (j == 1)
+            {
+                strcpy(dir_entry->name, "..");
+                dir_entry->inum = 0;
+            }
+            else
+            {
+                dir_entry->inum = -1;
+            }
+        }
+    }
     while (1)
     {
         struct sockaddr_in addr;
@@ -984,7 +1034,7 @@ int main(int argc, char *argv[])
             mfs_shutdown(addr, pointer, filesize, sd);
             break;
         default:
-            printf("invalid identifier");
+            printf("invalid identifier %d\n", identifier);
             break;
         }
     }

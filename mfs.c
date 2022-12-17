@@ -28,17 +28,21 @@ int num_digits(int num)
 int MFS_Init(char *hostname, int port)
 {
     printf("client:: beginning MFS_Init\n");
-    sd = UDP_Open(62482);
+
+    srand(time(0));
+
+    int port_num = (rand() % (MAX_PORT - MIN_PORT) + MIN_PORT);
+    sd = UDP_Open(port_num);
 
     printf("client:: init sd to %d\n", sd);
     int rc = UDP_FillSockAddr(&addrSnd, hostname, port);
-    //    printf("client:: init addrSnd to %s\n", addrSnd);
 
     if (rc < 0)
     {
         printf("client:: failed to send (UDP_FillSockAddr)\n");
         exit(1);
     }
+
 
     printf("client:: finished init\n");
     return 0;
@@ -93,7 +97,6 @@ int MFS_Lookup(int pinum, char *name)
             printf("client:: failed to send (UDP_Write)\n");
             exit(1);
         }
-        // return - 1;
 
         printf("client:: wait for reply...\n");
         rc = UDP_Read(sd, &addrRcv, message, BUFFER_SIZE);
